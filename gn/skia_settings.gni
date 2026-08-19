@@ -1,0 +1,10 @@
+# Baseline GN args for Skia Graphite + external Dawn.
+# See fun docs/graphics.md §4.2.
+
+declare_args() {
+  fun_external_dawn = true
+  fun_dawn_source_include_dir = ""
+  fun_dawn_generated_include_dir = ""
+  fun_dawn_library = ""
+  fun_dawn_backend = ""
+}

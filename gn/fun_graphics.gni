@@ -1,0 +1,28 @@
+# Overlay compiled inside a temporary Skia workspace as
+# third_party/fun_graphics/. See fun docs/graphics.md §4.3.
+
+declare_args() {
+  fun_graphics_include_dir = ""
+}
+
+static_library("fun_graphics_bridge") {
+  sources = [
+    "src/api.cpp",
+    "src/build_info.cpp",
+    "src/graphite_context.cpp",
+    "src/surface.cpp",
+    "src/canvas.cpp",
+    "src/path.cpp",
+    "src/image.cpp",
+    "src/text.cpp",
+  ]
+
+  include_dirs = [
+    "include",
+  ]
+
+  deps = [
+    "//:skia",
+    "//third_party/dawn",
+  ]
+}

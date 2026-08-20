@@ -65,6 +65,8 @@ else
       -DX11_INCLUDE_DIR=${sysroot}/usr/include \
       -DX11_X11_INCLUDE_PATH=${sysroot}/usr/include \
       -DX11_X11_LIB=${sysroot}${libdir}/libX11.so"
+  elif [ -f /usr/include/X11/Xlib.h ] && [ -f /usr/include/X11/Xlib-xcb.h ]; then
+    dawn_use_x11=ON
   fi
 fi
 

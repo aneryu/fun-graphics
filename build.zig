@@ -197,6 +197,7 @@ fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
     return switch (result.os.tag) {
         .linux => switch (result.cpu.arch) {
             .aarch64 => versions.native_linux_aarch64,
+            .x86_64 => versions.native_linux_x86_64,
             else => null,
         },
         .macos => switch (result.cpu.arch) {

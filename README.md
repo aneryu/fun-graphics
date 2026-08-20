@@ -35,16 +35,17 @@ Current published triples:
 | triple | asset | backend |
 |---|---|---|
 | aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` | Vulkan + X11 |
+| x86_64-linux | `fun-graphics-native-x86_64-linux.tar.gz` | Vulkan + X11 |
 | aarch64-macos | `fun-graphics-native-aarch64-macos.tar.gz` | Metal |
 
-The macOS asset is produced by `.github/workflows/native-macos.yml` (`macos-14`)
-and uploaded onto the same `native-r1` release. Apple Silicon Macs with
-`-Dnative=true` download it on cache miss. sha256 is pinned in
+Linux x86_64 is produced by `.github/workflows/native-linux.yml` (`ubuntu-24.04`).
+macOS aarch64 is produced by `.github/workflows/native-macos.yml` (`macos-14`).
+Both upload onto the same `native-r1` release. sha256 is pinned in
 `deps/versions.zig`.
 
 The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
-Windows / Intel Mac / other Linux triples still need `zig build native` on that
-host, then `zig build pack-native` + `gh release upload`.
+Windows / Intel Mac still need `zig build native` on that host, then
+`zig build pack-native` + `gh release upload`.
 
 ```bash
 # cheap path: download prebuilt, then link
@@ -67,6 +68,7 @@ fetches them into `~/.cache/fun-graphics/` and builds:
 `zig build bridge-smoke` compiles the real Graphite C ABI and runs wrap/flush.
 Default `zig build test` still links the stub ABI.
 
-Linux window surfaces need X11. If `~/.cache/fun-graphics/sysroot` contains
-`X11/Xlib.h` (extracted from `libx11-dev` without root), `zig build native`
-rebuilds Dawn with `DAWN_USE_X11=ON`.
+Linux window surfaces need X11. `zig build native` enables `DAWN_USE_X11=ON`
+when `/usr/include/X11/Xlib.h` is present, or when
+`~/.cache/fun-graphics/sysroot` contains those headers (extracted from
+`libx11-dev` without root).

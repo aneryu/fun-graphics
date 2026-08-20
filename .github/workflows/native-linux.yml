@@ -1,0 +1,88 @@
+name: native-linux
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tools/**"
+      - "deps/**"
+      - "patches/**"
+      - "include/**"
+      - "tests/**"
+      - "build.zig"
+      - ".github/workflows/native-linux.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  x86_64-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      FUN_GRAPHICS_JOBS: "3"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+          use-cache: false
+
+      - name: Install native build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build python3 pkg-config \
+            libx11-dev libx11-xcb-dev libxcb1-dev
+
+      - name: Restore native cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/fun-graphics/git
+            ~/.cache/fun-graphics/worktrees
+            ~/.cache/fun-graphics/native
+          key: native-linux-x86_64-${{ hashFiles('deps/versions.zig') }}
+          restore-keys: |
+            native-linux-x86_64-
+
+      - name: Disk before
+        run: df -h
+
+      - name: Build native (Dawn Vulkan/X11 + Skia Graphite + bridge)
+        run: zig build native
+
+      - name: Pack Release tarball
+        run: zig build pack-native
+
+      - name: Upload x86_64-linux asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          asset="${HOME}/.cache/fun-graphics/releases/fun-graphics-native-x86_64-linux.tar.gz"
+          test -f "${asset}"
+          sha256sum "${asset}"
+          ls -lh "${asset}"
+          gh release upload native-r1 "${asset}" --clobber -R "${GITHUB_REPOSITORY}"
+
+      - name: Native ABI tests
+        run: zig build test -Dnative=true
+
+      - name: Save native cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/fun-graphics/git
+            ~/.cache/fun-graphics/worktrees
+            ~/.cache/fun-graphics/native
+          key: native-linux-x86_64-${{ hashFiles('deps/versions.zig') }}-${{ github.run_id }}
+
+      - name: Disk after
+        if: always()
+        run: df -h

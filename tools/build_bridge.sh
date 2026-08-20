@@ -60,21 +60,26 @@ ar rcs "${lib}" \
 # One relocatable object so Zig `addObjectFile` keeps Dawn static constructors
 # (backend registration) instead of archive GC.
 if fun_is_macos; then
-    # Apple ld rejects -r together with -force_load. `ar x` also overwrites
-    # duplicate member basenames (Dawn/Tint has ~80 of them), so extract with
-    # unique names then ld -r -filelist.
-    stage=$(mktemp -d)
-    trap 'rm -rf "${stage}"' EXIT
-    python3 "$(dirname "$0")/extract_ar.py" "${lib}" "${stage}/bridge"
-    python3 "$(dirname "$0")/extract_ar.py" "${skia_lib}" "${stage}/skia"
-    python3 "$(dirname "$0")/extract_ar.py" "${dawn_lib}" "${stage}/dawn"
-    list=${stage}/objects.list
-    find "${stage}/bridge" "${stage}/skia" "${stage}/dawn" -name '*.o' > "${list}"
-    if [ ! -s "${list}" ]; then
-        echo "fun-graphics: no object members to pack into ${native_o}" >&2
-        exit 1
+    # Prefer -all_load so duplicate archive member names (Dawn/Tint) are kept.
+    # Fall back to unique-name extract + -filelist if this ld rejects the combo.
+    if ! ld -r -arch "$(fun_ld_arch)" -keep_private_externs -all_load \
+        "${lib}" "${skia_lib}" "${dawn_lib}" -o "${native_o}" 2>/tmp/fun-graphics-ld-r.log
+    then
+        echo "fun-graphics: ld -r -all_load failed, extracting members:" >&2
+        cat /tmp/fun-graphics-ld-r.log >&2
+        stage=$(mktemp -d)
+        trap 'rm -rf "${stage}"' EXIT
+        python3 "$(dirname "$0")/extract_ar.py" "${lib}" "${stage}/bridge"
+        python3 "$(dirname "$0")/extract_ar.py" "${skia_lib}" "${stage}/skia"
+        python3 "$(dirname "$0")/extract_ar.py" "${dawn_lib}" "${stage}/dawn"
+        list=${stage}/objects.list
+        find "${stage}/bridge" "${stage}/skia" "${stage}/dawn" -name '*.o' > "${list}"
+        if [ ! -s "${list}" ]; then
+            echo "fun-graphics: no object members to pack into ${native_o}" >&2
+            exit 1
+        fi
+        ld -r -arch "$(fun_ld_arch)" -keep_private_externs -filelist "${list}" -o "${native_o}"
     fi
-    ld -r -arch "$(fun_ld_arch)" -filelist "${list}" -o "${native_o}"
 else
     ld -r -o "${native_o}" \
         --whole-archive \

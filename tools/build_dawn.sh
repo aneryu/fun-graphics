@@ -35,6 +35,10 @@ srm_cc="${src}/src/dawn/native/SharedResourceMemory.cpp"
 if [ -f "${patch_dir}/dawn-structured-binding-capture.patch" ] && [ -f "${srm_cc}" ] && ! grep -q 'fencePtr' "${srm_cc}"; then
   git -C "${src}" apply "${patch_dir}/dawn-structured-binding-capture.patch"
 fi
+checks_cmake="${src}/src/cmake/DawnCompilerChecks.cmake"
+if [ -f "${patch_dir}/dawn-no-gnu-cxx-modules.patch" ] && [ -f "${checks_cmake}" ] && ! grep -q 'CMAKE_CXX_COMPILER_ID STREQUAL "GNU"' "${checks_cmake}"; then
+  git -C "${src}" apply "${patch_dir}/dawn-no-gnu-cxx-modules.patch"
+fi
 
 home=${HOME:-/tmp}
 sysroot="${home}/.cache/fun-graphics/sysroot"

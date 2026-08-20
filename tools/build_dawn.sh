@@ -14,13 +14,17 @@ out=$2
 build=${out}/build
 jobs=$(fun_nproc)
 
-mkdir -p "${build}" "${out}/include" "${out}/lib"
+mkdir -p "${out}/include" "${out}/lib"
 
 if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
   echo "fun-graphics: reusing ${out}/lib/libdawn_monolithic.a" >&2
   printf '%s\n' "${out}/lib/libdawn_monolithic.a"
   exit 0
 fi
+
+# Drop a failed CMake cache so new generator flags actually apply.
+rm -rf "${build}"
+mkdir -p "${build}"
 
 patch_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)/patches
 tint_cc="${src}/src/tint/lang/core/ir/transform/multiplanar_external_texture.cc"
@@ -77,11 +81,10 @@ fi
 
 # CMake 3.28+ on Ubuntu 24.04 scans C++ modules for dawncpp_module and
 # errors because GCC has no import-graph discovery.
-cmake_extra="${cmake_extra} -DCMAKE_CXX_SCAN_FOR_MODULES=OFF"
-
 # shellcheck disable=SC2086
 cmake -S "${src}" -B "${build}" ${generator} \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
   ${cmake_extra} \
   -DBUILD_SHARED_LIBS=OFF \
   -DDAWN_BUILD_MONOLITHIC_LIBRARY=STATIC \

@@ -27,8 +27,8 @@ CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB.
 
 `-Dnative=true` looks in `~/.cache/fun-graphics/native/skia-<commit>/lib/`
 first. On a cache miss it downloads the matching tarball from this repo's
-GitHub Release (`native-r1` for recipe 1), verifies sha256 from
-`deps/versions.zig`, and unpacks.
+rolling `nightly` GitHub Release and unpacks. There is no versioned native-rN
+channel; `nightly` is the only published artifact set.
 
 Current published triples:
 
@@ -40,12 +40,11 @@ Current published triples:
 
 Linux x86_64 is produced by `.github/workflows/native-linux.yml` (`ubuntu-24.04`).
 macOS aarch64 is produced by `.github/workflows/native-macos.yml` (`macos-14`).
-Both upload onto the same `native-r1` release. sha256 is pinned in
-`deps/versions.zig`.
+Both overwrite the same `nightly` release.
 
 The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
 Windows / Intel Mac still need `zig build native` on that host, then
-`zig build pack-native` + `gh release upload`.
+`zig build pack-native` + `sh tools/publish_native.sh`.
 
 ```bash
 # cheap path: download prebuilt, then link

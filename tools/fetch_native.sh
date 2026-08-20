@@ -38,7 +38,9 @@ if [ "${asset}" = "-" ] || [ -z "${asset}" ]; then
 fi
 
 tarball="${release_dir}/${asset}"
-if [ ! -f "${tarball}" ]; then
+
+download_tarball() {
+    rm -f "${tarball}"
     if command -v gh >/dev/null 2>&1; then
         gh release download "${tag}" -R "${repo}" -p "${asset}" -D "${release_dir}" --clobber
     elif [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
@@ -57,14 +59,30 @@ if [ ! -f "${tarball}" ]; then
         echo "  zig build native" >&2
         exit 1
     fi
+}
+
+verify_sha256() {
+    if [ "${sha256}" = "-" ] || [ -z "${sha256}" ] || [ "${#sha256}" -ne 64 ]; then
+        return 0
+    fi
+    actual=$(fun_sha256 "${tarball}")
+    if [ "${actual}" = "${sha256}" ]; then
+        return 0
+    fi
+    echo "fun-graphics: sha256 mismatch for ${asset}" >&2
+    echo "  expected ${sha256}" >&2
+    echo "  actual   ${actual}" >&2
+    return 1
+}
+
+if [ -f "${tarball}" ] && ! verify_sha256; then
+    echo "fun-graphics: cached ${asset} is stale; re-downloading ${tag}" >&2
+    rm -f "${tarball}"
 fi
 
-if [ "${sha256}" != "-" ] && [ -n "${sha256}" ] && [ "${#sha256}" -eq 64 ]; then
-    actual=$(fun_sha256 "${tarball}")
-    if [ "${actual}" != "${sha256}" ]; then
-        echo "fun-graphics: sha256 mismatch for ${asset}" >&2
-        echo "  expected ${sha256}" >&2
-        echo "  actual   ${actual}" >&2
+if [ ! -f "${tarball}" ]; then
+    download_tarball
+    if ! verify_sha256; then
         rm -f "${tarball}"
         exit 1
     fi

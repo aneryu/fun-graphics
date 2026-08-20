@@ -1,6 +1,6 @@
 #!/bin/sh
 # Pack the host native relocatable object into a GitHub Release tarball.
-# Does not upload; run `gh release upload` afterwards.
+# Does not upload; run `sh tools/publish_native.sh <tarball>` afterwards.
 set -eu
 
 . "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/host.sh"

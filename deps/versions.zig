@@ -14,32 +14,32 @@ pub const dawn = .{
     .commit = "e5958a4fe03fac5c8fec7479a46aa7e4e188a0f8",
 };
 
-/// Prebuilt native relocatable objects live on GitHub Releases of this repo.
+/// Prebuilt native relocatable objects live on the rolling `nightly`
+/// GitHub Release of this repo. There is no native-rN channel.
 /// Cache miss at `-Dnative=true` downloads the matching tarball instead of
 /// compiling Dawn/Skia. `zig build native` remains the from-source fallback.
 pub const native_release = .{
     .repository = "aneryu/fun-graphics",
-    .tag = "native-r1",
+    .tag = "nightly",
 };
 
 pub const NativeAsset = struct {
     file: []const u8,
-    sha256: []const u8,
+    /// Optional integrity hash of the tarball. Empty means trust the rolling
+    /// `nightly` asset as-is (the only published channel).
+    sha256: []const u8 = "",
 };
 
 pub const native_linux_aarch64 = NativeAsset{
     .file = "fun-graphics-native-aarch64-linux.tar.gz",
-    .sha256 = "ba3ea1ef33d83a1367e198757d1c101a114dcba9048b99931ce6ecda5c151e15",
 };
 
 pub const native_linux_x86_64 = NativeAsset{
     .file = "fun-graphics-native-x86_64-linux.tar.gz",
-    .sha256 = "af1c8f4492dd5b82821eb1090b61775204ce4978d841b1415d1c1af6d521016a",
 };
 
 pub const native_macos_aarch64 = NativeAsset{
     .file = "fun-graphics-native-aarch64-macos.tar.gz",
-    .sha256 = "054c2621aeb052f35f6f2eb097f55d162f33b2ec98f14f810190f78b991ad172",
 };
 
 pub fn isDawnPinned() bool {
@@ -74,10 +74,8 @@ test "recipe lock is version 1" {
     try std.testing.expectEqual(@as(usize, 40), dawn.commit.len);
     try std.testing.expectEqual(@as(usize, 40), skia.commit.len);
     try std.testing.expectEqualStrings("aneryu/fun-graphics", native_release.repository);
-    try std.testing.expectEqualStrings("native-r1", native_release.tag);
-    try std.testing.expectEqual(@as(usize, 64), native_linux_aarch64.sha256.len);
-    try std.testing.expectEqualStrings("fun-graphics-native-aarch64-macos.tar.gz", native_macos_aarch64.file);
-    try std.testing.expectEqual(@as(usize, 64), native_macos_aarch64.sha256.len);
+    try std.testing.expectEqualStrings("nightly", native_release.tag);
+    try std.testing.expectEqualStrings("fun-graphics-native-aarch64-linux.tar.gz", native_linux_aarch64.file);
     try std.testing.expectEqualStrings("fun-graphics-native-x86_64-linux.tar.gz", native_linux_x86_64.file);
-    try std.testing.expectEqual(@as(usize, 64), native_linux_x86_64.sha256.len);
+    try std.testing.expectEqualStrings("fun-graphics-native-aarch64-macos.tar.gz", native_macos_aarch64.file);
 }

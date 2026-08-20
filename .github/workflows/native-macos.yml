@@ -69,7 +69,7 @@ jobs:
             sha256sum "${asset}"
           fi
           ls -lh "${asset}"
-          gh release upload native-r1 "${asset}" --clobber -R "${GITHUB_REPOSITORY}"
+          sh tools/publish_native.sh "${asset}" "${GITHUB_REPOSITORY}"
 
       - name: Native ABI tests
         run: zig build test -Dnative=true

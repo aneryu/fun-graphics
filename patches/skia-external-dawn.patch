@@ -1,25 +1,12 @@
-diff --git a/third_party/dawn/args.gni b/third_party/dawn/args.gni
---- a/third_party/dawn/args.gni
-+++ b/third_party/dawn/args.gni
-@@ -9,4 +9,12 @@ declare_args() {
-   dawn_enable_opengles = false
-   dawn_enable_metal = is_mac || is_ios
-   dawn_enable_vulkan = is_linux || is_android
-+
-+  # fun-graphics: use a prebuilt Dawn static library instead of build_dawn.py.
-+  fun_external_dawn = false
-+  fun_dawn_source_include_dir = ""
-+  fun_dawn_generated_include_dir = ""
-+  fun_dawn_library = ""
-+  fun_dawn_backend = ""
- }
 diff --git a/third_party/dawn/BUILD.gn b/third_party/dawn/BUILD.gn
+index 03579f4..0027286 100644
 --- a/third_party/dawn/BUILD.gn
 +++ b/third_party/dawn/BUILD.gn
-@@ -132,6 +132,13 @@ group("tint") {
+@@ -132,7 +132,13 @@ group("tint") {
  }
  
  config("dawn_api_config") {
+-  if (!is_canvaskit) {
 +  if (fun_external_dawn) {
 +    include_dirs = [
 +      fun_dawn_source_include_dir,
@@ -30,7 +17,7 @@ diff --git a/third_party/dawn/BUILD.gn b/third_party/dawn/BUILD.gn
      include_dirs = [
        "../externals/dawn",
        "../externals/dawn/include",
-@@ -142,7 +149,7 @@ config("dawn_api_config") {
+@@ -142,7 +148,7 @@ config("dawn_api_config") {
      # Emscripten includes its own WebGPU headers.
      include_dirs = []
    }
@@ -39,7 +26,7 @@ diff --git a/third_party/dawn/BUILD.gn b/third_party/dawn/BUILD.gn
      ldflags = [ "/WHOLEARCHIVE:dawn_combined.lib" ]
      libs = [
        "onecore.lib",
-@@ -151,11 +158,14 @@ config("dawn_api_config") {
+@@ -151,10 +157,12 @@ config("dawn_api_config") {
        "dxguid.lib",
        "libcpmt.lib",
      ]
@@ -54,7 +41,7 @@ diff --git a/third_party/dawn/BUILD.gn b/third_party/dawn/BUILD.gn
  
    # https://dawn.googlesource.com/dawn/+/647c352f57aa8a4c2666258455158a36c0c385af/src/dawn/native/BUILD.gn#645
    if (is_mac || is_ios) {
-@@ -314,7 +324,11 @@ config("dawn_defines") {
+@@ -314,7 +322,11 @@ config("dawn_defines") {
  }
  
  group("dawn") {
@@ -67,3 +54,19 @@ diff --git a/third_party/dawn/BUILD.gn b/third_party/dawn/BUILD.gn
  
    public_configs = [ ":dawn_api_config" ]
  
+diff --git a/third_party/dawn/args.gni b/third_party/dawn/args.gni
+index 5028f50..7787fbf 100644
+--- a/third_party/dawn/args.gni
++++ b/third_party/dawn/args.gni
+@@ -9,4 +9,11 @@ declare_args() {
+   dawn_enable_opengles = false
+   dawn_enable_metal = is_mac || is_ios
+   dawn_enable_vulkan = is_linux || is_android
++
++  # fun-graphics: use a prebuilt Dawn static library instead of build_dawn.py.
++  fun_external_dawn = false
++  fun_dawn_source_include_dir = ""
++  fun_dawn_generated_include_dir = ""
++  fun_dawn_library = ""
++  fun_dawn_backend = ""
+ }

@@ -35,8 +35,8 @@ jobs:
       - name: Install CMake and Ninja
         run: brew install cmake ninja
 
-      - name: Cache Dawn/Skia worktrees
-        uses: actions/cache@v4
+      - name: Restore native cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/fun-graphics/git
@@ -72,6 +72,16 @@ jobs:
           fi
           ls -lh "${asset}"
           gh release upload native-r1 "${asset}" --clobber -R "${GITHUB_REPOSITORY}"
+
+      - name: Save native cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/fun-graphics/git
+            ~/.cache/fun-graphics/worktrees
+            ~/.cache/fun-graphics/native
+          key: native-macos-${{ hashFiles('deps/versions.zig') }}-${{ github.run_id }}
 
       - name: Disk after
         if: always()

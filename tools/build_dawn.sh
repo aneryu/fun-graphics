@@ -1,6 +1,8 @@
 #!/bin/sh
-# Configure and build Dawn as a Vulkan-only monolithic static library.
+# Configure and build Dawn as a monolithic static library for the host GPU API.
 set -eu
+
+. "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/host.sh"
 
 if [ "$#" -lt 2 ]; then
   echo "usage: $0 <dawn-src> <out-dir>" >&2
@@ -10,46 +12,71 @@ fi
 src=$1
 out=$2
 build=${out}/build
-jobs=${FUN_GRAPHICS_JOBS:-$(nproc)}
+jobs=$(fun_nproc)
 
 mkdir -p "${build}" "${out}/include" "${out}/lib"
 
-home=${HOME:-/tmp}
-sysroot="${home}/.cache/fun-graphics/sysroot"
-dawn_use_x11=OFF
-x11_inc=
-if [ -f "${sysroot}/usr/include/X11/Xlib.h" ] && [ -f "${sysroot}/usr/include/X11/Xlib-xcb.h" ]; then
-  dawn_use_x11=ON
-  mkdir -p "${sysroot}/usr/lib/aarch64-linux-gnu"
-  [ -e "${sysroot}/usr/lib/aarch64-linux-gnu/libX11.so" ] || \
-    ln -sfn /usr/lib/aarch64-linux-gnu/libX11.so.6 "${sysroot}/usr/lib/aarch64-linux-gnu/libX11.so"
-  [ -e "${sysroot}/usr/lib/aarch64-linux-gnu/libX11-xcb.so" ] || \
-    ln -sfn /usr/lib/aarch64-linux-gnu/libX11-xcb.so.1 "${sysroot}/usr/lib/aarch64-linux-gnu/libX11-xcb.so"
-  [ -e "${sysroot}/usr/lib/aarch64-linux-gnu/libxcb.so" ] || \
-    ln -sfn /usr/lib/aarch64-linux-gnu/libxcb.so.1 "${sysroot}/usr/lib/aarch64-linux-gnu/libxcb.so"
-  x11_inc="-I${sysroot}/usr/include"
+if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
+  echo "fun-graphics: reusing ${out}/lib/libdawn_monolithic.a" >&2
+  printf '%s\n' "${out}/lib/libdawn_monolithic.a"
+  exit 0
 fi
 
-cmake -S "${src}" -B "${build}" \
+home=${HOME:-/tmp}
+sysroot="${home}/.cache/fun-graphics/sysroot"
+cmake_extra=
+dawn_enable_vulkan=OFF
+dawn_enable_metal=OFF
+dawn_use_x11=OFF
+
+if fun_is_macos; then
+  dawn_enable_metal=ON
+  cmake_extra="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+else
+  dawn_enable_vulkan=ON
+  x11_inc=
+  if [ -f "${sysroot}/usr/include/X11/Xlib.h" ] && [ -f "${sysroot}/usr/include/X11/Xlib-xcb.h" ]; then
+    dawn_use_x11=ON
+    libdir=/usr/lib/$(uname -m)-linux-gnu
+    mkdir -p "${sysroot}${libdir}"
+    [ -e "${sysroot}${libdir}/libX11.so" ] || \
+      ln -sfn "${libdir}/libX11.so.6" "${sysroot}${libdir}/libX11.so"
+    [ -e "${sysroot}${libdir}/libX11-xcb.so" ] || \
+      ln -sfn "${libdir}/libX11-xcb.so.1" "${sysroot}${libdir}/libX11-xcb.so"
+    [ -e "${sysroot}${libdir}/libxcb.so" ] || \
+      ln -sfn "${libdir}/libxcb.so.1" "${sysroot}${libdir}/libxcb.so"
+    x11_inc="-I${sysroot}/usr/include"
+    cmake_extra="${cmake_extra} \
+      -DCMAKE_C_FLAGS=${x11_inc} \
+      -DCMAKE_CXX_FLAGS=${x11_inc} \
+      -DCMAKE_PREFIX_PATH=${sysroot}/usr \
+      -DCMAKE_INCLUDE_PATH=${sysroot}/usr/include \
+      -DCMAKE_LIBRARY_PATH=${sysroot}${libdir} \
+      -DX11_INCLUDE_DIR=${sysroot}/usr/include \
+      -DX11_X11_INCLUDE_PATH=${sysroot}/usr/include \
+      -DX11_X11_LIB=${sysroot}${libdir}/libX11.so"
+  fi
+fi
+
+generator=
+if command -v ninja >/dev/null 2>&1; then
+  generator="-G Ninja"
+fi
+
+# shellcheck disable=SC2086
+cmake -S "${src}" -B "${build}" ${generator} \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_FLAGS="${x11_inc}" \
-  -DCMAKE_CXX_FLAGS="${x11_inc}" \
-  -DCMAKE_PREFIX_PATH="${sysroot}/usr" \
-  -DCMAKE_INCLUDE_PATH="${sysroot}/usr/include" \
-  -DCMAKE_LIBRARY_PATH="${sysroot}/usr/lib/aarch64-linux-gnu" \
-  -DX11_INCLUDE_DIR="${sysroot}/usr/include" \
-  -DX11_X11_INCLUDE_PATH="${sysroot}/usr/include" \
-  -DX11_X11_LIB="${sysroot}/usr/lib/aarch64-linux-gnu/libX11.so" \
+  ${cmake_extra} \
   -DBUILD_SHARED_LIBS=OFF \
   -DDAWN_BUILD_MONOLITHIC_LIBRARY=STATIC \
   -DDAWN_ENABLE_INSTALL=OFF \
   -DDAWN_BUILD_SAMPLES=OFF \
   -DDAWN_BUILD_TESTS=OFF \
   -DDAWN_FETCH_DEPENDENCIES=ON \
-  -DDAWN_ENABLE_VULKAN=ON \
+  -DDAWN_ENABLE_VULKAN="${dawn_enable_vulkan}" \
   -DDAWN_ENABLE_DESKTOP_GL=OFF \
   -DDAWN_ENABLE_OPENGLES=OFF \
-  -DDAWN_ENABLE_METAL=OFF \
+  -DDAWN_ENABLE_METAL="${dawn_enable_metal}" \
   -DDAWN_ENABLE_D3D11=OFF \
   -DDAWN_ENABLE_D3D12=OFF \
   -DDAWN_ENABLE_NULL=ON \

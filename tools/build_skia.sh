@@ -2,6 +2,8 @@
 # Configure and build Skia Graphite against a prebuilt Dawn archive.
 set -eu
 
+. "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/host.sh"
+
 if [ "$#" -lt 3 ]; then
   echo "usage: $0 <skia-src> <dawn-native-out> <out-dir>" >&2
   exit 2
@@ -10,10 +12,16 @@ fi
 src=$1
 dawn_out=$2
 out=$3
-jobs=${FUN_GRAPHICS_JOBS:-$(nproc)}
+jobs=$(fun_nproc)
 build=${out}/gn
 
 mkdir -p "${build}" "${out}/include" "${out}/lib"
+
+if [ -f "${out}/lib/libskia.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
+  echo "fun-graphics: reusing ${out}/lib/libskia.a" >&2
+  printf '%s\n' "${out}/lib/libskia.a"
+  exit 0
+fi
 
 dawn_src_inc="${dawn_out}/include"
 dawn_gen_inc="${dawn_out}/include"
@@ -25,9 +33,16 @@ if [ ! -f "${dawn_lib}" ]; then
 fi
 
 gn_bin=${src}/bin/gn
+if [ ! -x "${gn_bin}" ] || ! "${gn_bin}" --version >/dev/null 2>&1; then
+  python3 "${src}/bin/fetch-gn"
+fi
 ninja_bin=${src}/bin/ninja
-if [ ! -x "${ninja_bin}" ]; then
-  ninja_bin=$(command -v ninja)
+if [ ! -x "${ninja_bin}" ] || ! "${ninja_bin}" --version >/dev/null 2>&1; then
+  ninja_bin=$(command -v ninja || true)
+fi
+if [ -z "${ninja_bin}" ]; then
+  python3 "${src}/bin/fetch-ninja"
+  ninja_bin=${src}/bin/ninja
 fi
 
 patch_file=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)/patches/skia-external-dawn.patch
@@ -35,11 +50,27 @@ if [ -f "${patch_file}" ] && ! grep -q fun_external_dawn "${src}/third_party/daw
   git -C "${src}" apply "${patch_file}"
 fi
 
+dawn_enable_vulkan=true
+dawn_enable_metal=false
+target_cpu_arg=
+target_os_arg=
+if fun_is_macos; then
+  dawn_enable_vulkan=false
+  dawn_enable_metal=true
+  target_os_arg="target_os=\"mac\""
+  case "$(fun_arch)" in
+    aarch64) target_cpu_arg="target_cpu=\"arm64\"" ;;
+    x86_64) target_cpu_arg="target_cpu=\"x64\"" ;;
+  esac
+fi
+
 cd "${src}"
 "${gn_bin}" gen "${build}" --args="
   is_official_build=true
   is_debug=false
   is_component_build=false
+  ${target_os_arg}
+  ${target_cpu_arg}
   skia_enable_graphite=true
   skia_use_dawn=true
   skia_enable_ganesh=false
@@ -70,10 +101,10 @@ cd "${src}"
   skia_use_wuffs=false
   skia_use_piex=false
   skia_enable_spirv_validation=false
-  dawn_enable_vulkan=true
+  dawn_enable_vulkan=${dawn_enable_vulkan}
   dawn_enable_d3d11=false
   dawn_enable_d3d12=false
-  dawn_enable_metal=false
+  dawn_enable_metal=${dawn_enable_metal}
   dawn_enable_opengles=false
   fun_external_dawn=true
   fun_dawn_source_include_dir=\"${dawn_src_inc}\"

@@ -18,20 +18,14 @@ if [ ! -f "${bridge_lib}" ]; then
   exit 1
 fi
 
-mkdir -p "${skia_out}/bin"
-c++ -std=c++20 -O2 \
-  -DSK_GRAPHITE -DSK_DAWN \
-  -I "${dawn_out}/include" \
-  -I "${root}/include" \
-  -I "${skia_src}" \
-  "${src}" \
-  -Wl,--start-group \
-  -Wl,--whole-archive \
+FUN_GRAPHICS_CXX_DEFS="-DSK_GRAPHITE -DSK_DAWN" \
+  sh "${root}/tools/cxx_link_archives.sh" \
+  "${bin}" "${src}" \
+  "${dawn_out}/include" \
+  "${root}/include" \
+  "${skia_src}" \
+  -- \
   "${bridge_lib}" \
   "${skia_out}/lib/libskia.a" \
-  "${dawn_out}/lib/libdawn_monolithic.a" \
-  -Wl,--no-whole-archive \
-  -Wl,--end-group \
-  -lpthread -ldl -lz \
-  -o "${bin}"
+  "${dawn_out}/lib/libdawn_monolithic.a"
 "${bin}"

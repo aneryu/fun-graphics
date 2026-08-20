@@ -32,12 +32,17 @@ GitHub Release (`native-r1` for recipe 1), verifies sha256 from
 
 Current published triples:
 
-| triple | asset |
-|---|---|
-| aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` |
+| triple | asset | backend |
+|---|---|---|
+| aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` | Vulkan + X11 |
+| aarch64-macos | `fun-graphics-native-aarch64-macos.tar.gz` | Metal |
+
+The macOS asset is produced by `.github/workflows/native-macos.yml` (`macos-14`)
+and uploaded onto the same `native-r1` release. Apple Silicon Macs with
+`-Dnative=true` download it on cache miss.
 
 The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
-macOS / Windows / other Linux triples still need `zig build native` on that
+Windows / Intel Mac / other Linux triples still need `zig build native` on that
 host, then `zig build pack-native` + `gh release upload`.
 
 ```bash

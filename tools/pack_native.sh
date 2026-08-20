@@ -3,6 +3,8 @@
 # Does not upload; run `gh release upload` afterwards.
 set -eu
 
+. "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/host.sh"
+
 if [ "$#" -lt 3 ]; then
     echo "usage: $0 <skia-out> <dawn-commit> <skia-commit> [outdir]" >&2
     exit 2
@@ -20,13 +22,7 @@ if [ ! -f "${native_o}" ]; then
     exit 1
 fi
 
-arch=$(uname -m)
-case "${arch}" in
-    aarch64|arm64) arch=aarch64 ;;
-    x86_64|amd64) arch=x86_64 ;;
-esac
-os=$(uname -s | tr '[:upper:]' '[:lower:]')
-triple="${arch}-${os}"
+triple=$(fun_triple)
 asset="fun-graphics-native-${triple}.tar.gz"
 
 if [ -z "${outdir}" ]; then
@@ -34,7 +30,7 @@ if [ -z "${outdir}" ]; then
 fi
 mkdir -p "${outdir}"
 
-object_sha=$(sha256sum "${native_o}" | awk '{print $1}')
+object_sha=$(fun_sha256 "${native_o}")
 stage=$(mktemp -d)
 trap 'rm -rf "${stage}"' EXIT
 
@@ -51,5 +47,5 @@ cat > "${stage}/manifest.json" <<EOF
 EOF
 
 tar -C "${stage}" -czf "${outdir}/${asset}" manifest.json libfun_graphics_native.o
-sha256sum "${outdir}/${asset}"
+fun_sha256 "${outdir}/${asset}"
 printf '%s\n' "${outdir}/${asset}"

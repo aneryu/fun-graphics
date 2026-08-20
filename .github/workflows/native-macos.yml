@@ -1,0 +1,78 @@
+name: native-macos
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tools/**"
+      - "deps/**"
+      - "patches/**"
+      - "include/**"
+      - "tests/**"
+      - "build.zig"
+      - ".github/workflows/native-macos.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  aarch64-macos:
+    runs-on: macos-14
+    timeout-minutes: 180
+    env:
+      FUN_GRAPHICS_JOBS: "2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Install CMake and Ninja
+        run: brew install cmake ninja
+
+      - name: Cache Dawn/Skia worktrees
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/fun-graphics/git
+            ~/.cache/fun-graphics/worktrees
+            ~/.cache/fun-graphics/native
+          key: native-macos-${{ hashFiles('deps/versions.zig') }}
+          restore-keys: |
+            native-macos-
+
+      - name: Disk before
+        run: df -h
+
+      - name: Build native (Dawn Metal + Skia Graphite + bridge)
+        run: zig build native
+
+      - name: Pack Release tarball
+        run: zig build pack-native
+
+      - name: Native ABI tests
+        run: zig build test -Dnative=true
+
+      - name: Upload aarch64-macos asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          asset="${HOME}/.cache/fun-graphics/releases/fun-graphics-native-aarch64-macos.tar.gz"
+          test -f "${asset}"
+          if command -v shasum >/dev/null; then
+            shasum -a 256 "${asset}"
+          else
+            sha256sum "${asset}"
+          fi
+          ls -lh "${asset}"
+          gh release upload native-r1 "${asset}" --clobber -R "${GITHUB_REPOSITORY}"
+
+      - name: Disk after
+        if: always()
+        run: df -h

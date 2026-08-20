@@ -6,12 +6,11 @@ if [ "$#" -lt 2 ]; then
 fi
 out=$1
 src=$2
+root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 bin=${out}/bin/dawn_smoke
-mkdir -p "${out}/bin"
-c++ -std=c++20 -O2 \
-  -I "${out}/include" \
-  "${src}" \
-  -Wl,--whole-archive "${out}/lib/libdawn_monolithic.a" -Wl,--no-whole-archive \
-  -lpthread -ldl \
-  -o "${bin}"
+sh "${root}/tools/cxx_link_archives.sh" \
+  "${bin}" "${src}" \
+  "${out}/include" \
+  -- \
+  "${out}/lib/libdawn_monolithic.a"
 "${bin}"

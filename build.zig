@@ -23,8 +23,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        // Dawn/Skia are built with g++/libstdc++; Zig's -lc++ is LLVM libc++.
-        .link_libcpp = !native,
+        // Linux native archives are g++/libstdc++; Zig's -lc++ is LLVM libc++.
+        // macOS native uses Apple libc++, which matches Zig's -lc++.
+        .link_libcpp = !(native and target.result.os.tag == .linux),
     });
     mod.addIncludePath(b.path("include"));
     mod.addImport("versions", versions_mod);
@@ -45,20 +46,7 @@ pub fn build(b: *std.Build) void {
         }
         const fetched_o = fetch.addOutputFileArg("libfun_graphics_native.o");
         mod.addObjectFile(fetched_o);
-        // Zig maps linkSystemLibrary("stdc++") to LLVM libc++. Dawn/Skia need GNU
-        // libstdc++, so pass the host shared objects as linker inputs.
-        const gnu_libdir = switch (target.result.cpu.arch) {
-            .aarch64 => "/usr/lib/aarch64-linux-gnu",
-            .x86_64 => "/usr/lib/x86_64-linux-gnu",
-            else => "/usr/lib",
-        };
-        mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libstdc++.so.6", .{gnu_libdir}) });
-        mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libgcc_s.so.1", .{gnu_libdir}) });
-        mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libm.so.6", .{gnu_libdir}) });
-        mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libX11.so.6", .{gnu_libdir}) });
-        mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libX11-xcb.so.1", .{gnu_libdir}) });
-        mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libxcb.so.1", .{gnu_libdir}) });
-        mod.linkSystemLibrary("z", .{});
+        linkNativeSystem(b, mod, target.result);
     } else {
         mod.addCSourceFiles(.{
             .files = &.{
@@ -90,7 +78,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
-            .link_libcpp = !native,
+            .link_libcpp = !(native and target.result.os.tag == .linux),
             .imports = &.{
                 .{ .name = "fun_graphics", .module = mod },
             },
@@ -211,6 +199,45 @@ fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
             .aarch64 => versions.native_linux_aarch64,
             else => null,
         },
+        .macos => switch (result.cpu.arch) {
+            .aarch64 => versions.native_macos_aarch64,
+            else => null,
+        },
         else => null,
     };
+}
+
+fn linkNativeSystem(b: *std.Build, mod: *std.Build.Module, result: std.Target) void {
+    switch (result.os.tag) {
+        .linux => {
+            // Zig maps linkSystemLibrary("stdc++") to LLVM libc++. Dawn/Skia need
+            // GNU libstdc++, so pass the host shared objects as linker inputs.
+            const gnu_libdir = switch (result.cpu.arch) {
+                .aarch64 => "/usr/lib/aarch64-linux-gnu",
+                .x86_64 => "/usr/lib/x86_64-linux-gnu",
+                else => "/usr/lib",
+            };
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libstdc++.so.6", .{gnu_libdir}) });
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libgcc_s.so.1", .{gnu_libdir}) });
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libm.so.6", .{gnu_libdir}) });
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libX11.so.6", .{gnu_libdir}) });
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libX11-xcb.so.1", .{gnu_libdir}) });
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libxcb.so.1", .{gnu_libdir}) });
+            mod.linkSystemLibrary("z", .{});
+        },
+        .macos => {
+            for ([_][]const u8{
+                "Foundation",
+                "IOSurface",
+                "IOKit",
+                "Metal",
+                "QuartzCore",
+                "Cocoa",
+            }) |name| {
+                mod.linkFramework(name, .{});
+            }
+            mod.linkSystemLibrary("z", .{});
+        },
+        else => {},
+    }
 }

@@ -3,6 +3,8 @@
 # Prefers the local cache; otherwise downloads a GitHub Release asset.
 set -eu
 
+. "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/host.sh"
+
 if [ "$#" -lt 6 ]; then
     echo "usage: $0 <cache_o> <repo> <tag> <asset> <sha256> <output>" >&2
     exit 2
@@ -57,8 +59,8 @@ if [ ! -f "${tarball}" ]; then
     fi
 fi
 
-if [ "${sha256}" != "-" ] && [ -n "${sha256}" ]; then
-    actual=$(sha256sum "${tarball}" | awk '{print $1}')
+if [ "${sha256}" != "-" ] && [ -n "${sha256}" ] && [ "${#sha256}" -eq 64 ]; then
+    actual=$(fun_sha256 "${tarball}")
     if [ "${actual}" != "${sha256}" ]; then
         echo "fun-graphics: sha256 mismatch for ${asset}" >&2
         echo "  expected ${sha256}" >&2

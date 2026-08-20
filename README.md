@@ -34,8 +34,8 @@ Current published triples:
 
 | triple | asset | backend |
 |---|---|---|
-| aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` | Vulkan + X11 |
-| x86_64-linux | `fun-graphics-native-x86_64-linux.tar.gz` | Vulkan + X11 |
+| aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` | Vulkan + X11 + Wayland |
+| x86_64-linux | `fun-graphics-native-x86_64-linux.tar.gz` | Vulkan + X11 + Wayland |
 | aarch64-macos | `fun-graphics-native-aarch64-macos.tar.gz` | Metal |
 
 Linux x86_64 is produced by `.github/workflows/native-linux.yml` (`ubuntu-24.04`).
@@ -67,7 +67,8 @@ fetches them into `~/.cache/fun-graphics/` and builds:
 `zig build bridge-smoke` compiles the real Graphite C ABI and runs wrap/flush.
 Default `zig build test` still links the stub ABI.
 
-Linux window surfaces need X11. `zig build native` enables `DAWN_USE_X11=ON`
-when `/usr/include/X11/Xlib.h` is present, or when
-`~/.cache/fun-graphics/sysroot` contains those headers (extracted from
-`libx11-dev` without root).
+Linux window surfaces need X11 and/or Wayland. `zig build native` enables
+`DAWN_USE_X11=ON` when `/usr/include/X11/Xlib.h` is present (or when
+`~/.cache/fun-graphics/sysroot` contains those headers, extracted from
+`libx11-dev` without root) and `DAWN_USE_WAYLAND=ON` when
+`/usr/include/wayland-client.h` is present (`libwayland-dev`).

@@ -16,16 +16,6 @@ jobs=$(fun_nproc)
 
 mkdir -p "${out}/include" "${out}/lib"
 
-if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
-  echo "fun-graphics: reusing ${out}/lib/libdawn_monolithic.a" >&2
-  printf '%s\n' "${out}/lib/libdawn_monolithic.a"
-  exit 0
-fi
-
-# Drop a failed CMake cache so new generator flags actually apply.
-rm -rf "${build}"
-mkdir -p "${build}"
-
 patch_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)/patches
 tint_cc="${src}/src/tint/lang/core/ir/transform/multiplanar_external_texture.cc"
 if [ -f "${patch_dir}/dawn-overloaded-ctad.patch" ] && [ -f "${tint_cc}" ] && ! grep -q 'overloaded(Ts...)' "${tint_cc}"; then
@@ -46,6 +36,7 @@ cmake_extra=
 dawn_enable_vulkan=OFF
 dawn_enable_metal=OFF
 dawn_use_x11=OFF
+dawn_use_wayland=OFF
 
 if fun_is_macos; then
   dawn_enable_metal=ON
@@ -76,7 +67,24 @@ else
   elif [ -f /usr/include/X11/Xlib.h ] && [ -f /usr/include/X11/Xlib-xcb.h ]; then
     dawn_use_x11=ON
   fi
+  if [ -f /usr/include/wayland-client.h ]; then
+    dawn_use_wayland=ON
+  fi
 fi
+
+stamp="${out}/dawn-config.txt"
+wanted="wayland=${dawn_use_wayland} x11=${dawn_use_x11} vulkan=${dawn_enable_vulkan} metal=${dawn_enable_metal}"
+if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
+  if [ -f "${stamp}" ] && [ "$(cat "${stamp}")" = "${wanted}" ]; then
+    echo "fun-graphics: reusing ${out}/lib/libdawn_monolithic.a (${wanted})" >&2
+    printf '%s\n' "${out}/lib/libdawn_monolithic.a"
+    exit 0
+  fi
+fi
+
+# Drop a failed CMake cache so new generator flags actually apply.
+rm -rf "${build}"
+mkdir -p "${build}"
 
 generator=
 if command -v ninja >/dev/null 2>&1; then
@@ -103,7 +111,7 @@ cmake -S "${src}" -B "${build}" ${generator} \
   -DDAWN_ENABLE_D3D11=OFF \
   -DDAWN_ENABLE_D3D12=OFF \
   -DDAWN_ENABLE_NULL=ON \
-  -DDAWN_USE_WAYLAND=OFF \
+  -DDAWN_USE_WAYLAND="${dawn_use_wayland}" \
   -DDAWN_USE_X11="${dawn_use_x11}" \
   -DDAWN_USE_GLFW=OFF \
   -DTINT_BUILD_CMD_TOOLS=OFF \
@@ -142,5 +150,6 @@ if [ -z "${found}" ]; then
   exit 1
 fi
 cp -a "${found}" "${out}/lib/libdawn_monolithic.a"
+printf '%s\n' "${wanted}" > "${stamp}"
 
 printf '%s\n' "${out}/lib/libdawn_monolithic.a"

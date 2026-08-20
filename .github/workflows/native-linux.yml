@@ -37,7 +37,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build python3 pkg-config \
-            libx11-dev libx11-xcb-dev libxcb1-dev
+            libx11-dev libx11-xcb-dev libxcb1-dev libwayland-dev
 
       - name: Restore native cache
         uses: actions/cache/restore@v4
@@ -53,7 +53,7 @@ jobs:
       - name: Disk before
         run: df -h
 
-      - name: Build native (Dawn Vulkan/X11 + Skia Graphite + bridge)
+      - name: Build native (Dawn Vulkan/X11/Wayland + Skia Graphite + bridge)
         run: zig build native
 
       - name: Pack Release tarball

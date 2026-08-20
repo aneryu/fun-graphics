@@ -234,6 +234,7 @@ fn linkNativeSystem(b: *std.Build, mod: *std.Build.Module, result: std.Target) v
             mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libX11.so.6", .{gnu_libdir}) });
             mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libX11-xcb.so.1", .{gnu_libdir}) });
             mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libxcb.so.1", .{gnu_libdir}) });
+            mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/libwayland-client.so.0", .{gnu_libdir}) });
             mod.linkSystemLibrary("z", .{});
         },
         .macos => {

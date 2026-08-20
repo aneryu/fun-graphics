@@ -31,6 +31,7 @@ jobs:
         uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
+          use-cache: false
 
       - name: Install CMake and Ninja
         run: brew install cmake ninja
@@ -55,9 +56,6 @@ jobs:
       - name: Pack Release tarball
         run: zig build pack-native
 
-      - name: Native ABI tests
-        run: zig build test -Dnative=true
-
       - name: Upload aarch64-macos asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,6 +70,9 @@ jobs:
           fi
           ls -lh "${asset}"
           gh release upload native-r1 "${asset}" --clobber -R "${GITHUB_REPOSITORY}"
+
+      - name: Native ABI tests
+        run: zig build test -Dnative=true
 
       - name: Save native cache
         if: always()

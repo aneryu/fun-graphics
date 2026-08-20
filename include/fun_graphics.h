@@ -2,7 +2,7 @@
 #define FUN_GRAPHICS_H
 
 //! Skia Graphite C ABI. Zig and fun must not see Skia C++ types.
-//! See docs/graphics.md §6 in the fun repository.
+//! See docs/graphics.md §6 / §18 in the fun repository.
 
 #include <stdint.h>
 #include <webgpu/webgpu.h>
@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#define FG_API_VERSION 1
+#define FG_API_VERSION 2
 
 typedef struct FGContext FGContext;
 typedef struct FGSurface FGSurface;
@@ -92,7 +92,38 @@ void fg_canvas_set_fill_style_rgba(
     float a
 );
 
+void fg_canvas_set_stroke_style_rgba(
+    FGCanvas* canvas,
+    float r,
+    float g,
+    float b,
+    float a
+);
+
+void fg_canvas_set_line_width(FGCanvas* canvas, float width);
+
+void fg_canvas_set_line_cap(FGCanvas* canvas, uint32_t cap);
+void fg_canvas_set_line_join(FGCanvas* canvas, uint32_t join);
+void fg_canvas_set_miter_limit(FGCanvas* canvas, float limit);
+void fg_canvas_set_global_alpha(FGCanvas* canvas, float alpha);
+
+void fg_canvas_set_line_dash(
+    FGCanvas* canvas,
+    const float* dashes,
+    uint32_t dash_count,
+    float offset
+);
+
 FGStatus fg_canvas_fill_rect(
+    FGCanvas* canvas,
+    float x,
+    float y,
+    float w,
+    float h,
+    FGError* out_error
+);
+
+FGStatus fg_canvas_stroke_rect(
     FGCanvas* canvas,
     float x,
     float y,
@@ -109,6 +140,164 @@ FGStatus fg_canvas_clear(
     float a,
     FGError* out_error
 );
+
+FGStatus fg_canvas_clear_rect(
+    FGCanvas* canvas,
+    float x,
+    float y,
+    float w,
+    float h,
+    FGError* out_error
+);
+
+void fg_canvas_save(FGCanvas* canvas);
+void fg_canvas_restore(FGCanvas* canvas);
+
+void fg_canvas_set_transform(
+    FGCanvas* canvas,
+    float a,
+    float b,
+    float c,
+    float d,
+    float e,
+    float f
+);
+
+void fg_canvas_transform(
+    FGCanvas* canvas,
+    float a,
+    float b,
+    float c,
+    float d,
+    float e,
+    float f
+);
+
+void fg_canvas_translate(FGCanvas* canvas, float x, float y);
+void fg_canvas_rotate(FGCanvas* canvas, float radians);
+void fg_canvas_scale(FGCanvas* canvas, float x, float y);
+
+void fg_canvas_begin_path(FGCanvas* canvas);
+void fg_canvas_close_path(FGCanvas* canvas);
+void fg_canvas_move_to(FGCanvas* canvas, float x, float y);
+void fg_canvas_line_to(FGCanvas* canvas, float x, float y);
+void fg_canvas_quadratic_curve_to(
+    FGCanvas* canvas,
+    float cpx,
+    float cpy,
+    float x,
+    float y
+);
+void fg_canvas_bezier_curve_to(
+    FGCanvas* canvas,
+    float cp1x,
+    float cp1y,
+    float cp2x,
+    float cp2y,
+    float x,
+    float y
+);
+void fg_canvas_arc(
+    FGCanvas* canvas,
+    float x,
+    float y,
+    float radius,
+    float start_angle,
+    float end_angle,
+    uint32_t counterclockwise
+);
+void fg_canvas_rect(FGCanvas* canvas, float x, float y, float w, float h);
+
+FGStatus fg_canvas_fill(FGCanvas* canvas, FGError* out_error);
+FGStatus fg_canvas_stroke(FGCanvas* canvas, FGError* out_error);
+FGStatus fg_canvas_clip(FGCanvas* canvas, FGError* out_error);
+
+void fg_canvas_set_font(
+    FGCanvas* canvas,
+    float size_px,
+    uint32_t weight,
+    uint32_t italic,
+    const char* family,
+    uint32_t family_len
+);
+
+void fg_canvas_set_text_align(FGCanvas* canvas, uint32_t align);
+void fg_canvas_set_text_baseline(FGCanvas* canvas, uint32_t baseline);
+
+FGStatus fg_canvas_fill_text(
+    FGCanvas* canvas,
+    const char* utf8,
+    uint32_t utf8_len,
+    float x,
+    float y,
+    float max_width,
+    FGError* out_error
+);
+
+typedef struct FGTextMetrics {
+    float width;
+    float actual_bounding_box_left;
+    float actual_bounding_box_right;
+    float actual_bounding_box_ascent;
+    float actual_bounding_box_descent;
+} FGTextMetrics;
+
+FGStatus fg_canvas_measure_text(
+    FGCanvas* canvas,
+    const char* utf8,
+    uint32_t utf8_len,
+    FGTextMetrics* out_metrics,
+    FGError* out_error
+);
+
+FGStatus fg_canvas_draw_image_rgba8(
+    FGCanvas* canvas,
+    const uint8_t* pixels,
+    uint32_t src_w,
+    uint32_t src_h,
+    float sx,
+    float sy,
+    float sw,
+    float sh,
+    float dx,
+    float dy,
+    float dw,
+    float dh,
+    FGError* out_error
+);
+
+FGStatus fg_surface_draw_surface(
+    FGSurface* dst,
+    FGSurface* src,
+    float alpha,
+    FGError* out_error
+);
+
+/** Draw a rectangle of `src` onto `dst`'s canvas (respects dst CTM). */
+FGStatus fg_canvas_draw_surface_image(
+    FGCanvas* dst,
+    FGSurface* src,
+    float sx,
+    float sy,
+    float sw,
+    float sh,
+    float dx,
+    float dy,
+    float dw,
+    float dh,
+    FGError* out_error
+);
+
+FGStatus fg_image_decode_rgba8(
+    const uint8_t* encoded,
+    uint32_t encoded_len,
+    uint8_t** out_pixels,
+    uint32_t* out_width,
+    uint32_t* out_height,
+    FGError* out_error
+);
+
+void fg_image_pixels_free(uint8_t* pixels);
 
 #ifdef __cplusplus
 } // extern "C"

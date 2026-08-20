@@ -1,28 +1,13 @@
-//! Native Graphite canvas: styles / rects / transforms (API v2).
-//! fillRect / setFillStyle / clear remain for full bridge rebuild; when linking
-//! against a published native-r1 object those symbols already exist — build.zig
-//! compiles this file only for `zig build native`, not the fetch-native path.
+//! Canvas 2D API v2 symbols only (no fillRect / setFillStyle / clear).
+//! Linked alongside published native-r1 objects that already provide the base ABI.
 
-#include "internal.h"
+#include "canvas_runtime.h"
 
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkRect.h"
 #include "include/effects/SkDashPathEffect.h"
-
-extern "C" void fg_canvas_set_fill_style_rgba(
-    FGCanvas* canvas,
-    float r,
-    float g,
-    float b,
-    float a
-) {
-    if (canvas == nullptr) return;
-    canvas->fill.setAntiAlias(true);
-    canvas->fill.setStyle(SkPaint::kFill_Style);
-    canvas->fill.setColor4f(SkColor4f{r, g, b, a}, nullptr);
-}
 
 extern "C" void fg_canvas_set_stroke_style_rgba(
     FGCanvas* canvas,
@@ -95,23 +80,6 @@ extern "C" void fg_canvas_set_line_dash(
     }
 }
 
-extern "C" FGStatus fg_canvas_fill_rect(
-    FGCanvas* canvas,
-    float x,
-    float y,
-    float w,
-    float h,
-    FGError* out_error
-) {
-    if (canvas == nullptr || canvas->sk == nullptr) {
-        fgSetError(out_error, FG_STATUS_INVALID_ARGUMENT, "FGCanvas is null");
-        return FG_STATUS_INVALID_ARGUMENT;
-    }
-    canvas->sk->drawRect(SkRect::MakeXYWH(x, y, w, h), fgFillPaint(canvas));
-    fgSetError(out_error, FG_STATUS_OK, nullptr);
-    return FG_STATUS_OK;
-}
-
 extern "C" FGStatus fg_canvas_stroke_rect(
     FGCanvas* canvas,
     float x,
@@ -125,23 +93,6 @@ extern "C" FGStatus fg_canvas_stroke_rect(
         return FG_STATUS_INVALID_ARGUMENT;
     }
     canvas->sk->drawRect(SkRect::MakeXYWH(x, y, w, h), fgStrokePaint(canvas));
-    fgSetError(out_error, FG_STATUS_OK, nullptr);
-    return FG_STATUS_OK;
-}
-
-extern "C" FGStatus fg_canvas_clear(
-    FGCanvas* canvas,
-    float r,
-    float g,
-    float b,
-    float a,
-    FGError* out_error
-) {
-    if (canvas == nullptr || canvas->sk == nullptr) {
-        fgSetError(out_error, FG_STATUS_INVALID_ARGUMENT, "FGCanvas is null");
-        return FG_STATUS_INVALID_ARGUMENT;
-    }
-    canvas->sk->clear(SkColor4f{r, g, b, a});
     fgSetError(out_error, FG_STATUS_OK, nullptr);
     return FG_STATUS_OK;
 }
@@ -170,11 +121,37 @@ extern "C" FGStatus fg_canvas_clear_rect(
 
 extern "C" void fg_canvas_save(FGCanvas* canvas) {
     if (canvas == nullptr || canvas->sk == nullptr) return;
+    CanvasExtra& extra = fgExtra(canvas);
+    CanvasExtra::GState state;
+    state.fill = canvas->fill;
+    state.stroke = extra.stroke;
+    state.global_alpha = extra.global_alpha;
+    state.line_width = extra.line_width;
+    state.line_dash = extra.line_dash;
+    state.line_dash_offset = extra.line_dash_offset;
+    state.font = extra.font;
+    state.text_align = extra.text_align;
+    state.text_baseline = extra.text_baseline;
+    extra.gstate.push_back(std::move(state));
     canvas->sk->save();
 }
 
 extern "C" void fg_canvas_restore(FGCanvas* canvas) {
     if (canvas == nullptr || canvas->sk == nullptr) return;
+    CanvasExtra& extra = fgExtra(canvas);
+    if (!extra.gstate.empty()) {
+        CanvasExtra::GState state = std::move(extra.gstate.back());
+        extra.gstate.pop_back();
+        canvas->fill = state.fill;
+        extra.stroke = state.stroke;
+        extra.global_alpha = state.global_alpha;
+        extra.line_width = state.line_width;
+        extra.line_dash = std::move(state.line_dash);
+        extra.line_dash_offset = state.line_dash_offset;
+        extra.font = state.font;
+        extra.text_align = state.text_align;
+        extra.text_baseline = state.text_baseline;
+    }
     canvas->sk->restore();
 }
 

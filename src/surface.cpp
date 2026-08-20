@@ -143,5 +143,8 @@ extern "C" FGStatus fg_surface_flush(FGSurface* surface, FGError* out_error) {
 }
 
 extern "C" void fg_surface_destroy(FGSurface* surface) {
+    if (surface != nullptr) {
+        fgDropExtra(&surface->canvas);
+    }
     delete surface;
 }

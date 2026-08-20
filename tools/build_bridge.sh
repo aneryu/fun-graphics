@@ -49,13 +49,22 @@ ${cxx} ${common_flags} ${inc} ${defs} \
     -c "${root}/src/surface.cpp" -o "${obj}/surface.o"
 ${cxx} ${common_flags} ${inc} ${defs} \
     -c "${root}/src/canvas.cpp" -o "${obj}/canvas.o"
+${cxx} ${common_flags} ${inc} ${defs} \
+    -c "${root}/src/path.cpp" -o "${obj}/path.o"
+${cxx} ${common_flags} ${inc} ${defs} \
+    -c "${root}/src/text.cpp" -o "${obj}/text.o"
+${cxx} ${common_flags} ${inc} ${defs} \
+    -c "${root}/src/image.cpp" -o "${obj}/image.o"
 
 rm -f "${lib}"
 ar rcs "${lib}" \
     "${obj}/build_info.o" \
     "${obj}/graphite_context.o" \
     "${obj}/surface.o" \
-    "${obj}/canvas.o"
+    "${obj}/canvas.o" \
+    "${obj}/path.o" \
+    "${obj}/text.o" \
+    "${obj}/image.o"
 
 # One relocatable object so Zig `addObjectFile` keeps Dawn static constructors
 # (backend registration) instead of archive GC.

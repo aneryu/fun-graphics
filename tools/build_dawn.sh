@@ -14,8 +14,32 @@ jobs=${FUN_GRAPHICS_JOBS:-$(nproc)}
 
 mkdir -p "${build}" "${out}/include" "${out}/lib"
 
+home=${HOME:-/tmp}
+sysroot="${home}/.cache/fun-graphics/sysroot"
+dawn_use_x11=OFF
+x11_inc=
+if [ -f "${sysroot}/usr/include/X11/Xlib.h" ] && [ -f "${sysroot}/usr/include/X11/Xlib-xcb.h" ]; then
+  dawn_use_x11=ON
+  mkdir -p "${sysroot}/usr/lib/aarch64-linux-gnu"
+  [ -e "${sysroot}/usr/lib/aarch64-linux-gnu/libX11.so" ] || \
+    ln -sfn /usr/lib/aarch64-linux-gnu/libX11.so.6 "${sysroot}/usr/lib/aarch64-linux-gnu/libX11.so"
+  [ -e "${sysroot}/usr/lib/aarch64-linux-gnu/libX11-xcb.so" ] || \
+    ln -sfn /usr/lib/aarch64-linux-gnu/libX11-xcb.so.1 "${sysroot}/usr/lib/aarch64-linux-gnu/libX11-xcb.so"
+  [ -e "${sysroot}/usr/lib/aarch64-linux-gnu/libxcb.so" ] || \
+    ln -sfn /usr/lib/aarch64-linux-gnu/libxcb.so.1 "${sysroot}/usr/lib/aarch64-linux-gnu/libxcb.so"
+  x11_inc="-I${sysroot}/usr/include"
+fi
+
 cmake -S "${src}" -B "${build}" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="${x11_inc}" \
+  -DCMAKE_CXX_FLAGS="${x11_inc}" \
+  -DCMAKE_PREFIX_PATH="${sysroot}/usr" \
+  -DCMAKE_INCLUDE_PATH="${sysroot}/usr/include" \
+  -DCMAKE_LIBRARY_PATH="${sysroot}/usr/lib/aarch64-linux-gnu" \
+  -DX11_INCLUDE_DIR="${sysroot}/usr/include" \
+  -DX11_X11_INCLUDE_PATH="${sysroot}/usr/include" \
+  -DX11_X11_LIB="${sysroot}/usr/lib/aarch64-linux-gnu/libX11.so" \
   -DBUILD_SHARED_LIBS=OFF \
   -DDAWN_BUILD_MONOLITHIC_LIBRARY=STATIC \
   -DDAWN_ENABLE_INSTALL=OFF \
@@ -30,7 +54,7 @@ cmake -S "${src}" -B "${build}" \
   -DDAWN_ENABLE_D3D12=OFF \
   -DDAWN_ENABLE_NULL=ON \
   -DDAWN_USE_WAYLAND=OFF \
-  -DDAWN_USE_X11=OFF \
+  -DDAWN_USE_X11="${dawn_use_x11}" \
   -DDAWN_USE_GLFW=OFF \
   -DTINT_BUILD_CMD_TOOLS=OFF \
   -DTINT_BUILD_TESTS=OFF \

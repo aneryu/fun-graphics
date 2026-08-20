@@ -7,14 +7,10 @@ declare_args() {
 
 static_library("fun_graphics_bridge") {
   sources = [
-    "src/api.cpp",
     "src/build_info.cpp",
     "src/graphite_context.cpp",
     "src/surface.cpp",
     "src/canvas.cpp",
-    "src/path.cpp",
-    "src/image.cpp",
-    "src/text.cpp",
   ]
 
   include_dirs = [

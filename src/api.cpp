@@ -1,3 +1,6 @@
+//! Stub Graphite C ABI used by the default Zig module (no Dawn/Skia).
+//! Native implementations live in graphite_context.cpp / surface.cpp.
+
 #include "fun_graphics.h"
 
 #include <cstddef>
@@ -64,4 +67,52 @@ extern "C" FGStatus fg_surface_flush(FGSurface* surface, FGError* out_error) {
 
 extern "C" void fg_surface_destroy(FGSurface* surface) {
     (void)surface;
+}
+
+extern "C" void fg_canvas_set_fill_style_rgba(
+    FGCanvas* canvas,
+    float r,
+    float g,
+    float b,
+    float a
+) {
+    (void)canvas;
+    (void)r;
+    (void)g;
+    (void)b;
+    (void)a;
+}
+
+extern "C" FGStatus fg_canvas_fill_rect(
+    FGCanvas* canvas,
+    float x,
+    float y,
+    float w,
+    float h,
+    FGError* out_error
+) {
+    (void)canvas;
+    (void)x;
+    (void)y;
+    (void)w;
+    (void)h;
+    setError(out_error, FG_STATUS_INTERNAL_ERROR, kNativeNotBuilt);
+    return FG_STATUS_INTERNAL_ERROR;
+}
+
+extern "C" FGStatus fg_canvas_clear(
+    FGCanvas* canvas,
+    float r,
+    float g,
+    float b,
+    float a,
+    FGError* out_error
+) {
+    (void)canvas;
+    (void)r;
+    (void)g;
+    (void)b;
+    (void)a;
+    setError(out_error, FG_STATUS_INTERNAL_ERROR, kNativeNotBuilt);
+    return FG_STATUS_INTERNAL_ERROR;
 }

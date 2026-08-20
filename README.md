@@ -2,6 +2,10 @@
 
 Glue and native-build repository for fun's graphics stack.
 
+Canonical repo: https://github.com/aneryu/fun-graphics  
+Consumed by [aneryu/fun](https://github.com/aneryu/fun) as a git submodule at
+`third_party/fun-graphics`.
+
 fun consumes **one** Zig module (`fun_graphics`) that statically links:
 
 - the Graphite C ABI bridge
@@ -9,21 +13,54 @@ fun consumes **one** Zig module (`fun_graphics`) that statically links:
 - Dawn WebGPU (when native archives are present)
 
 Without pinned Dawn/Skia sources, `zig build` links a stub C ABI. GPU entry
-points fail with `native graphics not built`.
+points fail with `native graphics not built`. After a native object is present
+(from a GitHub Release or `zig build native`), `zig build test -Dnative=true`
+links the real Graphite C ABI.
 
-Dawn and Skia are pinned in `deps/versions.zig`. `zig build native` fetches
-them into `~/.cache/fun-graphics/` and builds:
+This package does not contain zjs, JS bindings, native windows, or SDL3.
+See `docs/graphics.md` in fun.
+
+## Prebuilt native archives (GitHub Releases)
+
+Compiling Dawn + Skia from source is the expensive path (multi-GB cache,
+CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB.
+
+`-Dnative=true` looks in `~/.cache/fun-graphics/native/skia-<commit>/lib/`
+first. On a cache miss it downloads the matching tarball from this repo's
+GitHub Release (`native-r1` for recipe 1), verifies sha256 from
+`deps/versions.zig`, and unpacks.
+
+Current published triples:
+
+| triple | asset |
+|---|---|
+| aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` |
+
+The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
+macOS / Windows / other Linux triples still need `zig build native` on that
+host, then `zig build pack-native` + `gh release upload`.
+
+```bash
+# cheap path: download prebuilt, then link
+zig build test -Dnative=true
+
+# from-source fallback
+zig build native
+zig build pack-native
+```
+
+Dawn and Skia commits are locked in `deps/versions.zig`. `zig build native`
+fetches them into `~/.cache/fun-graphics/` and builds:
 
 - Dawn Vulkan-only monolithic `libdawn_monolithic.a`
 - Skia Graphite `libskia.a` linked against that Dawn archive (`fun_external_dawn`)
+- Graphite C ABI + `ld -r --whole-archive` → `libfun_graphics_native.o`
 
 `zig build dawn-smoke` runs `wgpuCreateInstance`.
 `zig build graphite-smoke` links Graphite+Dawn.
+`zig build bridge-smoke` compiles the real Graphite C ABI and runs wrap/flush.
+Default `zig build test` still links the stub ABI.
 
-Linux window surfaces need libX11; the first Dawn archive is built with
-`DAWN_USE_X11=OFF` so instance creation works without X11 headers. Enable X11
-when `libx11-dev` is available.
-
-This package does not contain zjs, JS bindings, native windows, or SDL3.
-
-See `docs/graphics.md` in [aneryu/fun](https://github.com/aneryu/fun).
+Linux window surfaces need X11. If `~/.cache/fun-graphics/sysroot` contains
+`X11/Xlib.h` (extracted from `libx11-dev` without root), `zig build native`
+rebuilds Dawn with `DAWN_USE_X11=ON`.

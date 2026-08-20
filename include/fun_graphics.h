@@ -84,6 +84,32 @@ FGStatus fg_surface_flush(
 
 void fg_surface_destroy(FGSurface* surface);
 
+void fg_canvas_set_fill_style_rgba(
+    FGCanvas* canvas,
+    float r,
+    float g,
+    float b,
+    float a
+);
+
+FGStatus fg_canvas_fill_rect(
+    FGCanvas* canvas,
+    float x,
+    float y,
+    float w,
+    float h,
+    FGError* out_error
+);
+
+FGStatus fg_canvas_clear(
+    FGCanvas* canvas,
+    float r,
+    float g,
+    float b,
+    float a,
+    FGError* out_error
+);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

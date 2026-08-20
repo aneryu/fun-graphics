@@ -39,7 +39,8 @@ Current published triples:
 
 The macOS asset is produced by `.github/workflows/native-macos.yml` (`macos-14`)
 and uploaded onto the same `native-r1` release. Apple Silicon Macs with
-`-Dnative=true` download it on cache miss.
+`-Dnative=true` download it on cache miss. sha256 is pinned in
+`deps/versions.zig`.
 
 The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
 Windows / Intel Mac / other Linux triples still need `zig build native` on that

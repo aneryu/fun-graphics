@@ -32,10 +32,9 @@ pub const native_linux_aarch64 = NativeAsset{
     .sha256 = "ba3ea1ef33d83a1367e198757d1c101a114dcba9048b99931ce6ecda5c151e15",
 };
 
-/// sha256 is filled after the macos-14 native CI publishes the asset.
 pub const native_macos_aarch64 = NativeAsset{
     .file = "fun-graphics-native-aarch64-macos.tar.gz",
-    .sha256 = "",
+    .sha256 = "054c2621aeb052f35f6f2eb097f55d162f33b2ec98f14f810190f78b991ad172",
 };
 
 pub fn isDawnPinned() bool {
@@ -73,4 +72,5 @@ test "recipe lock is version 1" {
     try std.testing.expectEqualStrings("native-r1", native_release.tag);
     try std.testing.expectEqual(@as(usize, 64), native_linux_aarch64.sha256.len);
     try std.testing.expectEqualStrings("fun-graphics-native-aarch64-macos.tar.gz", native_macos_aarch64.file);
+    try std.testing.expectEqual(@as(usize, 64), native_macos_aarch64.sha256.len);
 }

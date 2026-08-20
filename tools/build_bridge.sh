@@ -60,20 +60,20 @@ ar rcs "${lib}" \
 # One relocatable object so Zig `addObjectFile` keeps Dawn static constructors
 # (backend registration) instead of archive GC.
 if fun_is_macos; then
-    # Apple ld rejects -r together with -force_load; extract members then ld -r.
+    # Apple ld rejects -r together with -force_load. `ar x` also overwrites
+    # duplicate member basenames (Dawn/Tint has ~80 of them), so extract with
+    # unique names then ld -r -filelist.
     stage=$(mktemp -d)
     trap 'rm -rf "${stage}"' EXIT
-    mkdir "${stage}/bridge" "${stage}/skia" "${stage}/dawn"
-    ( cd "${stage}/bridge" && ar x "${lib}" )
-    ( cd "${stage}/skia" && ar x "${skia_lib}" )
-    ( cd "${stage}/dawn" && ar x "${dawn_lib}" )
+    python3 "$(dirname "$0")/extract_ar.py" "${lib}" "${stage}/bridge"
+    python3 "$(dirname "$0")/extract_ar.py" "${skia_lib}" "${stage}/skia"
+    python3 "$(dirname "$0")/extract_ar.py" "${dawn_lib}" "${stage}/dawn"
     list=${stage}/objects.list
     find "${stage}/bridge" "${stage}/skia" "${stage}/dawn" -name '*.o' > "${list}"
     if [ ! -s "${list}" ]; then
         echo "fun-graphics: no object members to pack into ${native_o}" >&2
         exit 1
     fi
-    # ARG_MAX cannot hold every Dawn/Tint member; Apple ld takes -filelist.
     ld -r -arch "$(fun_ld_arch)" -filelist "${list}" -o "${native_o}"
 else
     ld -r -o "${native_o}" \

@@ -22,10 +22,14 @@ if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1
   exit 0
 fi
 
-patch_file=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)/patches/dawn-overloaded-ctad.patch
+patch_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)/patches
 tint_cc="${src}/src/tint/lang/core/ir/transform/multiplanar_external_texture.cc"
-if [ -f "${patch_file}" ] && [ -f "${tint_cc}" ] && ! grep -q 'overloaded(Ts...)' "${tint_cc}"; then
-  git -C "${src}" apply "${patch_file}"
+if [ -f "${patch_dir}/dawn-overloaded-ctad.patch" ] && [ -f "${tint_cc}" ] && ! grep -q 'overloaded(Ts...)' "${tint_cc}"; then
+  git -C "${src}" apply "${patch_dir}/dawn-overloaded-ctad.patch"
+fi
+srm_cc="${src}/src/dawn/native/SharedResourceMemory.cpp"
+if [ -f "${patch_dir}/dawn-structured-binding-capture.patch" ] && [ -f "${srm_cc}" ] && ! grep -q 'fencePtr' "${srm_cc}"; then
+  git -C "${src}" apply "${patch_dir}/dawn-structured-binding-capture.patch"
 fi
 
 home=${HOME:-/tmp}

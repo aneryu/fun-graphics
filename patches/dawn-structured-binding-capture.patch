@@ -1,0 +1,17 @@
+diff --git a/src/dawn/native/SharedResourceMemory.cpp b/src/dawn/native/SharedResourceMemory.cpp
+--- a/src/dawn/native/SharedResourceMemory.cpp
++++ b/src/dawn/native/SharedResourceMemory.cpp
+@@ -184,11 +184,12 @@ ResultOrError<Success> SharedResourceMemory::BeginAccess(
+     DAWN_TRY(BeginAccessImpl(resource, descriptor));
+ 
+     for (auto [i, fence] : Enumerate(descriptor->fences)) {
++        SharedFenceBase* fencePtr = fence;
+         // Add the fences to mPendingFences if they are not already contained in the list.
+         // This loop is O(n*m), but there shouldn't be very many fences.
+         auto it = std::find_if(
+             mContents->mPendingFences.begin(), mContents->mPendingFences.end(),
+-            [&](const auto& pendingFence) { return pendingFence.object.Get() == fence; });
++            [fencePtr](const auto& pendingFence) { return pendingFence.object.Get() == fencePtr; });
+         if (it != mContents->mPendingFences.end()) {
+             it->signaledValue = std::max(it->signaledValue, descriptor->signaledValues[i]);
+             continue;

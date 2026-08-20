@@ -75,6 +75,10 @@ if command -v ninja >/dev/null 2>&1; then
   generator="-G Ninja"
 fi
 
+# CMake 3.28+ on Ubuntu 24.04 scans C++ modules for dawncpp_module and
+# errors because GCC has no import-graph discovery.
+cmake_extra="${cmake_extra} -DCMAKE_CXX_SCAN_FOR_MODULES=OFF"
+
 # shellcheck disable=SC2086
 cmake -S "${src}" -B "${build}" ${generator} \
   -DCMAKE_BUILD_TYPE=Release \

@@ -98,14 +98,35 @@ pub fn build(b: *std.Build) void {
         dawn_smoke_step.dependOn(&dawn_smoke.step);
         native_step.dependOn(&dawn_smoke.step);
 
-        if (!versions.isSkiaPinned()) {
-            const note = b.addSystemCommand(&.{
-                "sh",
-                "-c",
-                "printf '%s\\n' 'fun-graphics native: Dawn built; Skia still unpinned (graphite deferred)'",
-            });
-            note.step.dependOn(&dawn_smoke.step);
-            native_step.dependOn(&note.step);
+        if (versions.isSkiaPinned()) {
+            const skia_src = b.fmt("{s}/.cache/fun-graphics/worktrees/skia/{s}", .{ home, versions.skia.commit });
+            const skia_out = b.fmt("{s}/.cache/fun-graphics/native/skia-{s}", .{ home, versions.skia.commit });
+
+            const fetch_skia = b.addSystemCommand(&.{"sh"});
+            fetch_skia.addFileArg(b.path("tools/fetch_source.sh"));
+            fetch_skia.addArg("skia");
+            fetch_skia.addArg(versions.skia.repository);
+            fetch_skia.addArg(versions.skia.commit);
+
+            const build_skia = b.addSystemCommand(&.{"sh"});
+            build_skia.addFileArg(b.path("tools/build_skia.sh"));
+            build_skia.addArg(skia_src);
+            build_skia.addArg(dawn_out);
+            build_skia.addArg(skia_out);
+            build_skia.step.dependOn(&fetch_skia.step);
+            build_skia.step.dependOn(&build_dawn.step);
+
+            const graphite_smoke = b.addSystemCommand(&.{"sh"});
+            graphite_smoke.addFileArg(b.path("tools/graphite_smoke.sh"));
+            graphite_smoke.addArg(skia_src);
+            graphite_smoke.addArg(dawn_out);
+            graphite_smoke.addArg(skia_out);
+            graphite_smoke.addFileArg(b.path("tests/graphite_smoke.cpp"));
+            graphite_smoke.step.dependOn(&build_skia.step);
+
+            const graphite_smoke_step = b.step("graphite-smoke", "Link Graphite+Dawn and run ContextFactory::MakeDawn");
+            graphite_smoke_step.dependOn(&graphite_smoke.step);
+            native_step.dependOn(&graphite_smoke.step);
         }
     }
 }

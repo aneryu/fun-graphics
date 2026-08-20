@@ -1,0 +1,69 @@
+diff --git a/third_party/dawn/args.gni b/third_party/dawn/args.gni
+--- a/third_party/dawn/args.gni
++++ b/third_party/dawn/args.gni
+@@ -9,4 +9,12 @@ declare_args() {
+   dawn_enable_opengles = false
+   dawn_enable_metal = is_mac || is_ios
+   dawn_enable_vulkan = is_linux || is_android
++
++  # fun-graphics: use a prebuilt Dawn static library instead of build_dawn.py.
++  fun_external_dawn = false
++  fun_dawn_source_include_dir = ""
++  fun_dawn_generated_include_dir = ""
++  fun_dawn_library = ""
++  fun_dawn_backend = ""
+ }
+diff --git a/third_party/dawn/BUILD.gn b/third_party/dawn/BUILD.gn
+--- a/third_party/dawn/BUILD.gn
++++ b/third_party/dawn/BUILD.gn
+@@ -132,6 +132,13 @@ group("tint") {
+ }
+ 
+ config("dawn_api_config") {
++  if (fun_external_dawn) {
++    include_dirs = [
++      fun_dawn_source_include_dir,
++      fun_dawn_generated_include_dir,
++    ]
++    libs = [ fun_dawn_library ]
++  } else if (!is_canvaskit) {
+     include_dirs = [
+       "../externals/dawn",
+       "../externals/dawn/include",
+@@ -142,7 +149,7 @@ config("dawn_api_config") {
+     # Emscripten includes its own WebGPU headers.
+     include_dirs = []
+   }
+-  if (is_win) {
++  if (!fun_external_dawn && is_win) {
+     ldflags = [ "/WHOLEARCHIVE:dawn_combined.lib" ]
+     libs = [
+       "onecore.lib",
+@@ -151,11 +158,14 @@ config("dawn_api_config") {
+       "dxguid.lib",
+       "libcpmt.lib",
+     ]
+-  } else {
++  } else if (!fun_external_dawn) {
+     libs = []
+   }
+-  libs += [ "$root_out_dir/$_dawn_lib_name" ]
++  if (!fun_external_dawn) {
++    libs += [ "$root_out_dir/$_dawn_lib_name" ]
++  }
+ 
+   # https://dawn.googlesource.com/dawn/+/647c352f57aa8a4c2666258455158a36c0c385af/src/dawn/native/BUILD.gn#645
+   if (is_mac || is_ios) {
+@@ -314,7 +324,11 @@ config("dawn_defines") {
+ }
+ 
+ group("dawn") {
+-  public_deps = [ ":dawn_cmake" ]
++  if (fun_external_dawn) {
++    public_deps = []
++  } else {
++    public_deps = [ ":dawn_cmake" ]
++  }
+ 
+   public_configs = [ ":dawn_api_config" ]
+ 

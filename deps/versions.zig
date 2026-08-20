@@ -6,7 +6,7 @@ pub const recipe_version: u32 = 1;
 
 pub const skia = .{
     .repository = "https://github.com/google/skia.git",
-    .commit = "unpinned",
+    .commit = "25531e4cb95761278f0a563072b07f1024fe3f60",
 };
 
 pub const dawn = .{
@@ -44,4 +44,5 @@ test "recipe lock is version 1" {
     try std.testing.expectEqualStrings("https://github.com/google/skia.git", skia.repository);
     try std.testing.expectEqualStrings("https://github.com/google/dawn.git", dawn.repository);
     try std.testing.expectEqual(@as(usize, 40), dawn.commit.len);
+    try std.testing.expectEqual(@as(usize, 40), skia.commit.len);
 }

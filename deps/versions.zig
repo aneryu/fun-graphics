@@ -34,7 +34,7 @@ pub const native_linux_aarch64 = NativeAsset{
 
 pub const native_linux_x86_64 = NativeAsset{
     .file = "fun-graphics-native-x86_64-linux.tar.gz",
-    .sha256 = "",
+    .sha256 = "af1c8f4492dd5b82821eb1090b61775204ce4978d841b1415d1c1af6d521016a",
 };
 
 pub const native_macos_aarch64 = NativeAsset{
@@ -79,4 +79,5 @@ test "recipe lock is version 1" {
     try std.testing.expectEqualStrings("fun-graphics-native-aarch64-macos.tar.gz", native_macos_aarch64.file);
     try std.testing.expectEqual(@as(usize, 64), native_macos_aarch64.sha256.len);
     try std.testing.expectEqualStrings("fun-graphics-native-x86_64-linux.tar.gz", native_linux_x86_64.file);
+    try std.testing.expectEqual(@as(usize, 64), native_linux_x86_64.sha256.len);
 }

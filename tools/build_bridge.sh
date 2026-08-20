@@ -33,13 +33,6 @@ if [ ! -f "${skia_lib}" ]; then
     exit 1
 fi
 
-if [ -f "${native_o}" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
-    echo "fun-graphics: reusing ${native_o}" >&2
-    printf '%s\n' "${lib}"
-    printf '%s\n' "${native_o}"
-    exit 0
-fi
-
 mkdir -p "${obj}" "${skia_out}/lib"
 
 cxx=${CXX:-c++}
@@ -80,8 +73,8 @@ if fun_is_macos; then
         echo "fun-graphics: no object members to pack into ${native_o}" >&2
         exit 1
     fi
-    # shellcheck disable=SC2046
-    ld -r -arch "$(fun_ld_arch)" -o "${native_o}" $(cat "${list}")
+    # ARG_MAX cannot hold every Dawn/Tint member; Apple ld takes -filelist.
+    ld -r -arch "$(fun_ld_arch)" -filelist "${list}" -o "${native_o}"
 else
     ld -r -o "${native_o}" \
         --whole-archive \

@@ -18,3 +18,8 @@ struct FGContext {
     std::unique_ptr<skgpu::graphite::Context> graphite;
     std::unique_ptr<skgpu::graphite::Recorder> recorder;
 };
+
+// FGSurface.context is void* so canvas_v2 can share layout without Graphite.
+inline FGContext* fgSurfaceContext(FGSurface* surface) {
+    return surface == nullptr ? nullptr : static_cast<FGContext*>(surface->context);
+}

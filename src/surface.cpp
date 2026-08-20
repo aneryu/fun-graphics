@@ -113,13 +113,13 @@ extern "C" FGCanvas* fg_surface_get_canvas(FGSurface* surface) {
 }
 
 extern "C" FGStatus fg_surface_flush(FGSurface* surface, FGError* out_error) {
-    if (surface == nullptr || surface->context == nullptr ||
-        surface->context->recorder == nullptr || surface->context->graphite == nullptr) {
+    FGContext* context = fgSurfaceContext(surface);
+    if (context == nullptr || context->recorder == nullptr || context->graphite == nullptr) {
         fgSetError(out_error, FG_STATUS_INVALID_ARGUMENT, "FGSurface is null");
         return FG_STATUS_INVALID_ARGUMENT;
     }
 
-    std::unique_ptr<skgpu::graphite::Recording> recording = surface->context->recorder->snap();
+    std::unique_ptr<skgpu::graphite::Recording> recording = context->recorder->snap();
     if (!recording) {
         fgSetError(out_error, FG_STATUS_OK, nullptr);
         return FG_STATUS_OK;
@@ -127,13 +127,13 @@ extern "C" FGStatus fg_surface_flush(FGSurface* surface, FGError* out_error) {
 
     skgpu::graphite::InsertRecordingInfo info;
     info.fRecording = recording.get();
-    const skgpu::graphite::InsertStatus status = surface->context->graphite->insertRecording(info);
+    const skgpu::graphite::InsertStatus status = context->graphite->insertRecording(info);
     if (!status) {
         setInsertError(out_error, status);
         return FG_STATUS_INTERNAL_ERROR;
     }
 
-    if (!surface->context->graphite->submit()) {
+    if (!context->graphite->submit()) {
         fgSetError(out_error, FG_STATUS_INTERNAL_ERROR, "graphite submit failed");
         return FG_STATUS_INTERNAL_ERROR;
     }

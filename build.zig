@@ -44,9 +44,6 @@ pub fn build(b: *std.Build) void {
             fetch.addArg("-");
             fetch.addArg("-");
         }
-        if (std.fs.accessAbsolute(native_o, .{})) |_| {
-            fetch.addFileInput(.{ .cwd_relative = native_o });
-        } else |_| {}
         const fetched_o = fetch.addOutputFileArg("libfun_graphics_native.o");
         mod.addObjectFile(fetched_o);
         linkNativeSystem(b, mod, target.result);

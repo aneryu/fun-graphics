@@ -46,29 +46,15 @@ pub fn build(b: *std.Build) void {
         }
         const fetched_o = fetch.addOutputFileArg("libfun_graphics_native.o");
         mod.addObjectFile(fetched_o);
-
-        const fetch_skia = b.addSystemCommand(&.{"sh"});
-        fetch_skia.setName("fetch-skia-headers");
-        fetch_skia.addFileArg(b.path("tools/fetch_source.sh"));
-        fetch_skia.addArg("skia");
-        fetch_skia.addArg(versions.skia.repository);
-        fetch_skia.addArg(versions.skia.commit);
-
-        const build_v2 = b.addSystemCommand(&.{"sh"});
-        build_v2.setName("build-canvas-v2");
-        build_v2.addFileArg(b.path("tools/build_canvas_v2.sh"));
-        build_v2.addArg(skia_src);
-        build_v2.addArg(skia_out);
-        const v2_o = build_v2.addOutputFileArg("libfun_graphics_canvas_v2.o");
-        build_v2.step.dependOn(&fetch_skia.step);
-        mod.addObjectFile(v2_o);
+        // Nightly native already contains Canvas 2D v2 (path/text/image). Do not
+        // also link tools/build_canvas_v2.sh — that overlay duplicates symbols.
 
         linkNativeSystem(b, mod, target.result);
         if (target.result.os.tag == .macos) {
             mod.linkFramework("CoreText", .{});
             mod.linkFramework("CoreGraphics", .{});
             mod.linkFramework("CoreFoundation", .{});
-            // Image decode: native-r1 lacks PNG/JPEG codecs; canvas_v2 uses ImageIO.
+            // Image decode uses ImageIO; Skia is built without PNG/JPEG codecs.
             mod.linkFramework("ImageIO", .{});
         }
     } else {

@@ -5,7 +5,7 @@ const fun_graphics = @import("fun_graphics");
 
 test "build info reports native Graphite recipe" {
     const info = fun_graphics.getBuildInfo();
-    try std.testing.expectEqual(@as(u32, 1), info.api_version);
+    try std.testing.expectEqual(@as(u32, 2), info.api_version);
     try std.testing.expectEqualStrings("native", info.build_id);
     try std.testing.expectEqual(@as(usize, 40), info.skia_commit.len);
     try std.testing.expectEqual(@as(usize, 40), info.dawn_commit.len);

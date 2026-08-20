@@ -4,9 +4,9 @@
 const std = @import("std");
 const fun_graphics = @import("fun_graphics");
 
-test "build info reports API version 1" {
+test "build info reports API version 2" {
     const info = fun_graphics.getBuildInfo();
-    try std.testing.expectEqual(@as(u32, 1), info.api_version);
+    try std.testing.expectEqual(@as(u32, 2), info.api_version);
     try std.testing.expectEqual(@as(u32, 1), fun_graphics.versions.recipe_version);
 }
 

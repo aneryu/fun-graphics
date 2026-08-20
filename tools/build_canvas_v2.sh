@@ -1,6 +1,6 @@
 #!/bin/sh
-# Compile Canvas 2D API v2 extras and pack into one relocatable object.
-# Links alongside published libfun_graphics_native.o (native-r1 base ABI).
+# Optional overlay: Canvas 2D v2 extras as a relocatable object.
+# Default `-Dnative=true` does not use this — nightly already includes v2.
 set -eu
 
 . "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/host.sh"

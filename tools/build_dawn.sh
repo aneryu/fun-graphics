@@ -22,6 +22,12 @@ if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1
   exit 0
 fi
 
+patch_file=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)/patches/dawn-overloaded-ctad.patch
+tint_cc="${src}/src/tint/lang/core/ir/transform/multiplanar_external_texture.cc"
+if [ -f "${patch_file}" ] && [ -f "${tint_cc}" ] && ! grep -q 'overloaded(Ts...)' "${tint_cc}"; then
+  git -C "${src}" apply "${patch_file}"
+fi
+
 home=${HOME:-/tmp}
 sysroot="${home}/.cache/fun-graphics/sysroot"
 cmake_extra=

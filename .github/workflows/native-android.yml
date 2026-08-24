@@ -3,7 +3,9 @@ name: native-android
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    # Feature branch publishes the first aarch64-android nightly asset
+    # before this lands on main. Drop the extra branch after merge.
+    branches: [main, cursor/android-native-ae0d]
     paths:
       - "src/**"
       - "tools/**"

@@ -36,6 +36,8 @@ fi
 mkdir -p "${obj}" "${skia_out}/lib"
 
 cxx=${CXX:-c++}
+ar_bin=${AR:-ar}
+ld_bin=ld
 common_flags="-std=c++20 -O2 -fno-exceptions -fno-rtti -DSK_GRAPHITE -DSK_DAWN"
 ios_sysroot=
 ios_arch=
@@ -44,6 +46,11 @@ if fun_is_ios; then
     ios_arch=$(fun_ios_arch)
     cxx=$(fun_ios_clangxx)
     common_flags="${common_flags} -arch ${ios_arch} -isysroot ${ios_sysroot} $(fun_ios_min_flag) -DSK_BUILD_FOR_IOS"
+elif fun_is_android; then
+    cxx=$(fun_android_cxx)
+    ar_bin=$(fun_android_ar)
+    ld_bin=$(fun_android_ld)
+    common_flags="${common_flags} -fPIC"
 fi
 # Dawn headers must precede fun-graphics/include so stub webgpu.h cannot win.
 inc="-I ${dawn_out}/include -I ${root}/include -I ${skia_src}"
@@ -65,7 +72,7 @@ ${cxx} ${common_flags} ${inc} ${defs} \
     -c "${root}/src/image.cpp" -o "${obj}/image.o"
 
 rm -f "${lib}"
-ar rcs "${lib}" \
+"${ar_bin}" rcs "${lib}" \
     "${obj}/build_info.o" \
     "${obj}/graphite_context.o" \
     "${obj}/surface.o" \
@@ -76,7 +83,14 @@ ar rcs "${lib}" \
 
 # One relocatable object so Zig `addObjectFile` keeps Dawn static constructors
 # (backend registration) instead of archive GC.
-if fun_is_ios; then
+if fun_is_android; then
+    "${ld_bin}" -r -o "${native_o}" \
+        --whole-archive \
+        "${lib}" \
+        "${skia_lib}" \
+        "${dawn_lib}" \
+        --no-whole-archive
+elif fun_is_ios; then
     ld_ios_flags="-r -arch ${ios_arch} -syslibroot ${ios_sysroot} -keep_private_externs"
     if ! ld ${ld_ios_flags} -all_load \
         "${lib}" "${skia_lib}" "${dawn_lib}" -o "${native_o}" 2>/tmp/fun-graphics-ld-r.log
@@ -125,6 +139,8 @@ else
         "${dawn_lib}" \
         --no-whole-archive
 fi
+
+fun_strip_debug "${native_o}"
 
 printf '%s\n' "${lib}"
 printf '%s\n' "${native_o}"

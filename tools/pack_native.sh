@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pack the host native relocatable object into a GitHub Release tarball.
+# Pack the (possibly cross-compiled) native relocatable object into a GitHub Release tarball.
 # Does not upload; run `sh tools/publish_native.sh <tarball>` afterwards.
 set -eu
 
@@ -30,11 +30,13 @@ if [ -z "${outdir}" ]; then
 fi
 mkdir -p "${outdir}"
 
-object_sha=$(fun_sha256 "${native_o}")
 stage=$(mktemp -d)
 trap 'rm -rf "${stage}"' EXIT
 
 cp -a "${native_o}" "${stage}/libfun_graphics_native.o"
+# Slim even when packing an older fat .o that still has DWARF.
+fun_strip_debug "${stage}/libfun_graphics_native.o"
+object_sha=$(fun_sha256 "${stage}/libfun_graphics_native.o")
 cat > "${stage}/manifest.json" <<EOF
 {
   "recipe_version": 1,

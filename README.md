@@ -23,7 +23,9 @@ See `docs/graphics.md` in fun.
 ## Prebuilt native archives (GitHub Releases)
 
 Compiling Dawn + Skia from source is the expensive path (multi-GB cache,
-CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB.
+CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB
+(DWARF is stripped after `ld -r`; Android otherwise ships ~300MB of
+debug info and packs to ~116MB).
 
 `-Dnative=true` looks in `~/.cache/fun-graphics/native/skia-<commit>/lib/`
 first (iOS uses a `skia-<commit>-aarch64-ios` suffix so it does not collide
@@ -38,10 +40,12 @@ Current published triples:
 | x86_64-linux | `fun-graphics-native-x86_64-linux.tar.gz` | Vulkan + X11 + Wayland |
 | aarch64-macos | `fun-graphics-native-aarch64-macos.tar.gz` | Metal |
 | aarch64-ios | `fun-graphics-native-aarch64-ios.tar.gz` | Metal (iphoneos) |
+| aarch64-android | `fun-graphics-native-aarch64-android.tar.gz` | Vulkan + ANativeWindow |
 
 Linux x86_64 is produced by `.github/workflows/native-linux.yml` (`ubuntu-24.04`).
 macOS aarch64 is produced by `.github/workflows/native-macos.yml` (`macos-14`).
 iOS aarch64 is produced by `.github/workflows/native-ios.yml` (`macos-14` + iPhoneOS SDK).
+Android aarch64 is produced by `.github/workflows/native-android.yml` (`ubuntu-24.04` + NDK r27c).
 All overwrite the same `nightly` release.
 
 iOS is a cross-compile from macOS:
@@ -91,3 +95,39 @@ Linux window surfaces need X11 and/or Wayland. `zig build native` enables
 `~/.cache/fun-graphics/sysroot` contains those headers, extracted from
 `libx11-dev` without root) and `DAWN_USE_WAYLAND=ON` when
 `/usr/include/wayland-client.h` is present (`libwayland-dev`).
+
+## Android (NDK cross-compile)
+
+Android is Vulkan-only. fun-graphics does not create Activities or JNI;
+it builds Dawn/Skia/bridge for the NDK and links `-landroid -llog -lvulkan`.
+Windows still belong to fun, which wraps an `ANativeWindow*` for Dawn's
+`WGPUSurfaceSourceAndroidNativeWindow`.
+
+Default ABI is `arm64-v8a`, API 26 (Vulkan floor). Requires NDK r26+ and a
+host `protoc` (`protobuf-compiler`) so Dawn can generate protobuf sources
+while the NDK clang targets Android.
+
+```bash
+export ANDROID_NDK_HOME=/path/to/android-ndk-r27c
+zig build native -Dandroid
+zig build pack-native -Dandroid
+# asset: fun-graphics-native-aarch64-android.tar.gz
+```
+
+Other ABIs (not published on `nightly` by default):
+
+```bash
+zig build native -Dandroid -Dandroid-abi=x86_64
+# or: FUN_GRAPHICS_ANDROID_ABI=armeabi-v7a zig build native -Dandroid
+```
+
+Cache paths are triple-suffixed (`dawn-<commit>-aarch64-android`) so an
+Android build does not overwrite a host Linux archive. Smoke binaries are
+linked with the NDK but not executed on the build host.
+
+Consume from fun:
+
+```bash
+zig build -Dgraphics-native=true -Dtarget=aarch64-linux-android.26 \
+  --sysroot "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+```

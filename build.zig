@@ -5,6 +5,9 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const native = b.option(bool, "native", "Link prebuilt Dawn/Skia/bridge archives") orelse false;
     const native_os = b.option([]const u8, "native-os", "From-source native OS override: ios | ios-simulator") orelse "";
+    const android = (b.option(bool, "android", "Cross-compile native Dawn/Skia for Android (NDK)") orelse false) or target.result.abi.isAndroid();
+    const android_abi = b.option([]const u8, "android-abi", "Android ABI") orelse defaultAndroidAbi(target.result);
+    const android_api = b.option([]const u8, "android-api", "Android API level") orelse "26";
 
     const versions_mod = b.createModule(.{
         .root_source_file = b.path("deps/versions.zig"),
@@ -14,20 +17,22 @@ pub fn build(b: *std.Build) void {
 
     const versions = @import("deps/versions.zig");
     const home = b.graph.environ_map.get("HOME") orelse "/tmp";
-    const cache_suffix = nativeCacheSuffix(b, target.result, native_os);
+    const cache_suffix = nativeCacheSuffix(b, target.result, native_os, android, android_abi);
     const dawn_out = b.fmt("{s}/.cache/fun-graphics/native/dawn-{s}{s}", .{ home, versions.dawn.commit, cache_suffix });
     const skia_src = b.fmt("{s}/.cache/fun-graphics/worktrees/skia/{s}", .{ home, versions.skia.commit });
     const skia_out = b.fmt("{s}/.cache/fun-graphics/native/skia-{s}{s}", .{ home, versions.skia.commit, cache_suffix });
     const native_o = b.fmt("{s}/lib/libfun_graphics_native.o", .{skia_out});
+    const gnu_linux_native = native and target.result.os.tag == .linux and !target.result.abi.isAndroid();
 
     const mod = b.addModule("fun_graphics", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        // Linux native archives are g++/libstdc++; Zig's -lc++ is LLVM libc++.
+        // GNU/Linux native archives are g++/libstdc++; Zig's -lc++ is LLVM libc++.
+        // Android native uses NDK libc++, which matches Zig's -lc++.
         // macOS / iOS native uses Apple libc++, which matches Zig's -lc++.
-        .link_libcpp = !(native and target.result.os.tag == .linux),
+        .link_libcpp = !gnu_linux_native,
     });
     mod.addIncludePath(b.path("include"));
     mod.addImport("versions", versions_mod);
@@ -53,17 +58,11 @@ pub fn build(b: *std.Build) void {
 
         linkNativeSystem(b, mod, target.result);
         switch (target.result.os.tag) {
-            .macos => {
+            .macos, .ios => {
                 mod.linkFramework("CoreText", .{});
                 mod.linkFramework("CoreGraphics", .{});
                 mod.linkFramework("CoreFoundation", .{});
                 // Image decode uses ImageIO; Skia is built without PNG/JPEG codecs.
-                mod.linkFramework("ImageIO", .{});
-            },
-            .ios => {
-                mod.linkFramework("CoreText", .{});
-                mod.linkFramework("CoreGraphics", .{});
-                mod.linkFramework("CoreFoundation", .{});
                 mod.linkFramework("ImageIO", .{});
             },
             else => {},
@@ -99,7 +98,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
-            .link_libcpp = !(native and target.result.os.tag == .linux),
+            .link_libcpp = !gnu_linux_native,
             .imports = &.{
                 .{ .name = "fun_graphics", .module = mod },
             },
@@ -123,6 +122,11 @@ pub fn build(b: *std.Build) void {
     host_target.addFileArg(b.path("tests/host_target.sh"));
     test_step.dependOn(&host_target.step);
 
+    const android_host = b.addSystemCommand(&.{"sh"});
+    android_host.setName("android-host-probe");
+    android_host.addFileArg(b.path("tests/android_host.sh"));
+    test_step.dependOn(&android_host.step);
+
     const native_step = b.step("native", "Build Dawn (and Skia when pinned) static archives");
     if (!versions.isDawnPinned()) {
         const native_fail = b.addSystemCommand(&.{
@@ -140,6 +144,7 @@ pub fn build(b: *std.Build) void {
         fetch_dawn.addArg(versions.dawn.repository);
         fetch_dawn.addArg(versions.dawn.commit);
         setNativeOsEnv(fetch_dawn, native_os);
+        applyAndroidEnv(b, fetch_dawn, android, android_abi, android_api);
 
         const build_dawn = b.addSystemCommand(&.{"sh"});
         build_dawn.addFileArg(b.path("tools/build_dawn.sh"));
@@ -147,6 +152,7 @@ pub fn build(b: *std.Build) void {
         build_dawn.addArg(dawn_out);
         build_dawn.step.dependOn(&fetch_dawn.step);
         setNativeOsEnv(build_dawn, native_os);
+        applyAndroidEnv(b, build_dawn, android, android_abi, android_api);
 
         native_step.dependOn(&build_dawn.step);
 
@@ -156,6 +162,7 @@ pub fn build(b: *std.Build) void {
         dawn_smoke.addFileArg(b.path("tests/dawn_smoke.cpp"));
         dawn_smoke.step.dependOn(&build_dawn.step);
         setNativeOsEnv(dawn_smoke, native_os);
+        applyAndroidEnv(b, dawn_smoke, android, android_abi, android_api);
 
         const dawn_smoke_step = b.step("dawn-smoke", "Link and run wgpuCreateInstance against native Dawn");
         dawn_smoke_step.dependOn(&dawn_smoke.step);
@@ -168,6 +175,7 @@ pub fn build(b: *std.Build) void {
             fetch_skia.addArg(versions.skia.repository);
             fetch_skia.addArg(versions.skia.commit);
             setNativeOsEnv(fetch_skia, native_os);
+            applyAndroidEnv(b, fetch_skia, android, android_abi, android_api);
 
             const build_skia = b.addSystemCommand(&.{"sh"});
             build_skia.addFileArg(b.path("tools/build_skia.sh"));
@@ -177,6 +185,7 @@ pub fn build(b: *std.Build) void {
             build_skia.step.dependOn(&fetch_skia.step);
             build_skia.step.dependOn(&build_dawn.step);
             setNativeOsEnv(build_skia, native_os);
+            applyAndroidEnv(b, build_skia, android, android_abi, android_api);
 
             const graphite_smoke = b.addSystemCommand(&.{"sh"});
             graphite_smoke.addFileArg(b.path("tools/graphite_smoke.sh"));
@@ -186,6 +195,7 @@ pub fn build(b: *std.Build) void {
             graphite_smoke.addFileArg(b.path("tests/graphite_smoke.cpp"));
             graphite_smoke.step.dependOn(&build_skia.step);
             setNativeOsEnv(graphite_smoke, native_os);
+            applyAndroidEnv(b, graphite_smoke, android, android_abi, android_api);
 
             const graphite_smoke_step = b.step("graphite-smoke", "Link Graphite+Dawn and run ContextFactory::MakeDawn");
             graphite_smoke_step.dependOn(&graphite_smoke.step);
@@ -200,6 +210,7 @@ pub fn build(b: *std.Build) void {
             build_bridge.addArg(versions.dawn.commit);
             build_bridge.step.dependOn(&build_skia.step);
             setNativeOsEnv(build_bridge, native_os);
+            applyAndroidEnv(b, build_bridge, android, android_abi, android_api);
 
             const bridge_smoke = b.addSystemCommand(&.{"sh"});
             bridge_smoke.addFileArg(b.path("tools/bridge_smoke.sh"));
@@ -209,6 +220,7 @@ pub fn build(b: *std.Build) void {
             bridge_smoke.addFileArg(b.path("tests/bridge_smoke.cpp"));
             bridge_smoke.step.dependOn(&build_bridge.step);
             setNativeOsEnv(bridge_smoke, native_os);
+            applyAndroidEnv(b, bridge_smoke, android, android_abi, android_api);
 
             const bridge_smoke_step = b.step("bridge-smoke", "Build Graphite C ABI and run wrap/flush smoke");
             bridge_smoke_step.dependOn(&bridge_smoke.step);
@@ -221,13 +233,23 @@ pub fn build(b: *std.Build) void {
             pack_native.addArg(versions.skia.commit);
             pack_native.step.dependOn(&build_bridge.step);
             setNativeOsEnv(pack_native, native_os);
+            applyAndroidEnv(b, pack_native, android, android_abi, android_api);
             const pack_step = b.step("pack-native", "Pack libfun_graphics_native.o into a GitHub Release tarball");
             pack_step.dependOn(&pack_native.step);
         }
     }
 }
 
-fn nativeCacheSuffix(b: *std.Build, result: std.Target, native_os: []const u8) []const u8 {
+fn nativeCacheSuffix(
+    b: *std.Build,
+    result: std.Target,
+    native_os: []const u8,
+    android: bool,
+    android_abi: []const u8,
+) []const u8 {
+    if (android or result.abi.isAndroid()) {
+        return b.fmt("-{s}", .{androidTriple(android_abi)});
+    }
     const ios_device = std.mem.eql(u8, native_os, "ios");
     const ios_sim = std.mem.eql(u8, native_os, "ios-simulator");
     const zig_ios = result.os.tag == .ios;
@@ -249,6 +271,12 @@ fn setNativeOsEnv(run: *std.Build.Step.Run, native_os: []const u8) void {
 
 fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
     const versions = @import("deps/versions.zig");
+    if (result.abi.isAndroid()) {
+        return switch (result.cpu.arch) {
+            .aarch64 => versions.native_android_aarch64,
+            else => null,
+        };
+    }
     return switch (result.os.tag) {
         .linux => switch (result.cpu.arch) {
             .aarch64 => versions.native_linux_aarch64,
@@ -271,6 +299,13 @@ fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
 }
 
 fn linkNativeSystem(b: *std.Build, mod: *std.Build.Module, result: std.Target) void {
+    if (result.abi.isAndroid()) {
+        mod.linkSystemLibrary("android", .{});
+        mod.linkSystemLibrary("log", .{});
+        mod.linkSystemLibrary("vulkan", .{});
+        mod.linkSystemLibrary("z", .{});
+        return;
+    }
     switch (result.os.tag) {
         .linux => {
             // Zig maps linkSystemLibrary("stdc++") to LLVM libc++. Dawn/Skia need
@@ -319,5 +354,44 @@ fn linkNativeSystem(b: *std.Build, mod: *std.Build.Module, result: std.Target) v
             mod.linkSystemLibrary("z", .{});
         },
         else => {},
+    }
+}
+
+fn defaultAndroidAbi(result: std.Target) []const u8 {
+    if (result.abi.isAndroid()) {
+        return switch (result.cpu.arch) {
+            .aarch64 => "arm64-v8a",
+            .x86_64 => "x86_64",
+            .arm => "armeabi-v7a",
+            .x86 => "x86",
+            else => "arm64-v8a",
+        };
+    }
+    return "arm64-v8a";
+}
+
+fn androidTriple(abi: []const u8) []const u8 {
+    if (std.mem.eql(u8, abi, "arm64-v8a")) return "aarch64-android";
+    if (std.mem.eql(u8, abi, "armeabi-v7a")) return "arm-android";
+    if (std.mem.eql(u8, abi, "x86_64")) return "x86_64-android";
+    if (std.mem.eql(u8, abi, "x86")) return "x86-android";
+    return "aarch64-android";
+}
+
+fn applyAndroidEnv(
+    b: *std.Build,
+    run: *std.Build.Step.Run,
+    android: bool,
+    abi: []const u8,
+    api: []const u8,
+) void {
+    if (!android) return;
+    run.setEnvironmentVariable("FUN_GRAPHICS_TARGET", "android");
+    run.setEnvironmentVariable("FUN_GRAPHICS_ANDROID_ABI", abi);
+    run.setEnvironmentVariable("FUN_GRAPHICS_ANDROID_API", api);
+    for ([_][]const u8{ "ANDROID_NDK_HOME", "ANDROID_NDK", "NDK_ROOT", "ANDROID_HOME", "PROTOC_EXECUTABLE" }) |key| {
+        if (b.graph.environ_map.get(key)) |value| {
+            run.setEnvironmentVariable(key, value);
+        }
     }
 }

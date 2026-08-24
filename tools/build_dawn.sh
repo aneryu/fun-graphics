@@ -48,6 +48,16 @@ if fun_is_ios; then
     -DCMAKE_OSX_DEPLOYMENT_TARGET=$(fun_ios_min) \
     -DCMAKE_MACOSX_BUNDLE=OFF \
     -DPROTOC_EXECUTABLE=${host_protoc}"
+elif fun_is_android; then
+  ndk=$(fun_require_ndk)
+  host_protoc=$(fun_host_protoc)
+  dawn_enable_vulkan=ON
+  cmake_extra="-DCMAKE_TOOLCHAIN_FILE=${ndk}/build/cmake/android.toolchain.cmake \
+    -DANDROID_ABI=$(fun_android_abi) \
+    -DANDROID_PLATFORM=android-$(fun_android_api) \
+    -DANDROID_STL=c++_static \
+    -DANDROID_ARM_NEON=TRUE \
+    -DPROTOC_EXECUTABLE=${host_protoc}"
 elif fun_is_macos; then
   dawn_enable_metal=ON
   cmake_extra="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
@@ -83,9 +93,9 @@ else
 fi
 
 stamp="${out}/dawn-config.txt"
-wanted="wayland=${dawn_use_wayland} x11=${dawn_use_x11} vulkan=${dawn_enable_vulkan} metal=${dawn_enable_metal}"
+wanted="target=$(fun_triple) wayland=${dawn_use_wayland} x11=${dawn_use_x11} vulkan=${dawn_enable_vulkan} metal=${dawn_enable_metal}"
 if fun_is_ios; then
-  wanted="target=$(fun_target) sdk=$(fun_ios_sdk_name) ${wanted}"
+  wanted="${wanted} sdk=$(fun_ios_sdk_name)"
 fi
 if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
   if [ -f "${stamp}" ] && [ "$(cat "${stamp}")" = "${wanted}" ]; then

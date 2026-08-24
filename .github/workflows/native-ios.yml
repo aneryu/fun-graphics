@@ -3,7 +3,9 @@ name: native-ios
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    # Feature branch publishes the first aarch64-ios nightly asset
+    # before this lands on main. Drop the extra branch after merge.
+    branches: [main, cursor/ios-support-64eb]
     paths:
       - "src/**"
       - "tools/**"
@@ -34,8 +36,12 @@ jobs:
           version: 0.16.0
           use-cache: false
 
+      - name: Install CMake and Ninja
+        run: brew install cmake ninja
+
       - name: Show iOS SDK
         run: |
+          xcode-select -p
           xcrun --sdk iphoneos --show-sdk-path
           xcrun --sdk iphoneos --show-sdk-version
 

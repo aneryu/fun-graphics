@@ -25,6 +25,13 @@ if ! fun_is_android; then
     exit 1
 fi
 
+# Host protoc is required only for Dawn's Android CMake, not this probe.
+if command -v protoc >/dev/null 2>&1; then
+    proto=$(fun_host_protoc)
+    [ -n "${proto}" ]
+    [ -x "${proto}" ]
+fi
+
 [ "$(fun_android_abi)" = arm64-v8a ]
 [ "$(fun_android_api)" = 26 ]
 [ "$(fun_triple)" = aarch64-android ]

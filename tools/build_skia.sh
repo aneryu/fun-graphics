@@ -50,8 +50,24 @@ if [ -f "${patch_file}" ] && ! grep -q fun_external_dawn "${src}/third_party/daw
   git -C "${src}" apply "${patch_file}"
 fi
 
+# AndroidVulkanMemoryAllocator.cpp needs AMD VMA (`vk_mem_alloc.h`). Skia
+# normally pulls it via DEPS into third_party/externals/; we fetch the same pin.
+if fun_is_android; then
+  vma_dst="${src}/third_party/externals/vulkanmemoryallocator"
+  if [ ! -f "${vma_dst}/include/vk_mem_alloc.h" ]; then
+    vma_src=$(sh "$(CDPATH= cd -- "$(dirname "$0")" && pwd)/fetch_source.sh" \
+      vulkanmemoryallocator \
+      "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git" \
+      eb744ea7a2b17040121b4bbb4d6f9e8a77e3cae7)
+    mkdir -p "$(dirname "${vma_dst}")"
+    rm -rf "${vma_dst}"
+    ln -sfn "${vma_src}" "${vma_dst}"
+  fi
+fi
+
 dawn_enable_vulkan=true
 dawn_enable_metal=false
+skia_use_vulkan=false
 target_cpu_arg=
 target_os_arg=
 ndk_arg=
@@ -61,6 +77,9 @@ if fun_is_android; then
   ndk_api_arg="ndk_api=$(fun_android_api)"
   target_os_arg="target_os=\"android\""
   target_cpu_arg="target_cpu=\"$(fun_android_gn_cpu)\""
+  # gpu_shared always compiles AndroidVulkanMemoryAllocator.cpp on Android;
+  # that needs VulkanMemoryAllocators::Make from skia_use_vulkan/vma.
+  skia_use_vulkan=true
 elif fun_is_macos; then
   dawn_enable_vulkan=false
   dawn_enable_metal=true
@@ -87,7 +106,7 @@ cd "${src}"
   skia_compile_sksl_tests=false
   skia_compile_modules=false
   skia_use_gl=false
-  skia_use_vulkan=false
+  skia_use_vulkan=${skia_use_vulkan}
   skia_use_metal=false
   skia_use_direct3d=false
   skia_enable_pdf=false

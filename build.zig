@@ -317,7 +317,7 @@ fn applyAndroidEnv(
     run.setEnvironmentVariable("FUN_GRAPHICS_TARGET", "android");
     run.setEnvironmentVariable("FUN_GRAPHICS_ANDROID_ABI", abi);
     run.setEnvironmentVariable("FUN_GRAPHICS_ANDROID_API", api);
-    for ([_][]const u8{ "ANDROID_NDK_HOME", "ANDROID_NDK", "NDK_ROOT", "ANDROID_HOME" }) |key| {
+    for ([_][]const u8{ "ANDROID_NDK_HOME", "ANDROID_NDK", "NDK_ROOT", "ANDROID_HOME", "PROTOC_EXECUTABLE" }) |key| {
         if (b.graph.environ_map.get(key)) |value| {
             run.setEnvironmentVariable(key, value);
         }

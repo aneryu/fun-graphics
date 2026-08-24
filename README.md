@@ -82,7 +82,9 @@ it builds Dawn/Skia/bridge for the NDK and links `-landroid -llog -lvulkan`.
 Windows still belong to fun, which wraps an `ANativeWindow*` for Dawn's
 `WGPUSurfaceSourceAndroidNativeWindow`.
 
-Default ABI is `arm64-v8a`, API 26 (Vulkan floor). Requires NDK r26+.
+Default ABI is `arm64-v8a`, API 26 (Vulkan floor). Requires NDK r26+ and a
+host `protoc` (`protobuf-compiler`) so Dawn can generate protobuf sources
+while the NDK clang targets Android.
 
 ```bash
 export ANDROID_NDK_HOME=/path/to/android-ndk-r27c

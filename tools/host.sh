@@ -137,6 +137,22 @@ fun_require_ndk() {
     printf '%s\n' "${ndk}"
 }
 
+# Dawn's bundled protobuf cannot build protoc for the Android target.
+# Cross-compiles must feed a host protoc via -DPROTOC_EXECUTABLE.
+fun_host_protoc() {
+    if [ -n "${PROTOC_EXECUTABLE:-}" ] && [ -x "${PROTOC_EXECUTABLE}" ]; then
+        printf '%s\n' "${PROTOC_EXECUTABLE}"
+        return 0
+    fi
+    if command -v protoc >/dev/null 2>&1; then
+        command -v protoc
+        return 0
+    fi
+    echo "fun-graphics: Android Dawn cross-compile needs a host protoc." >&2
+    echo "install protobuf-compiler or set PROTOC_EXECUTABLE to a host binary." >&2
+    return 1
+}
+
 fun_ndk_prebuilt_tag() {
     case "$(uname -s)-$(uname -m)" in
         Linux-x86_64) printf '%s\n' linux-x86_64 ;;

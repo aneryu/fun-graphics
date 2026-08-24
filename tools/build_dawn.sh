@@ -40,12 +40,14 @@ dawn_use_wayland=OFF
 
 if fun_is_android; then
   ndk=$(fun_require_ndk)
+  host_protoc=$(fun_host_protoc)
   dawn_enable_vulkan=ON
   cmake_extra="-DCMAKE_TOOLCHAIN_FILE=${ndk}/build/cmake/android.toolchain.cmake \
     -DANDROID_ABI=$(fun_android_abi) \
     -DANDROID_PLATFORM=android-$(fun_android_api) \
     -DANDROID_STL=c++_static \
-    -DANDROID_ARM_NEON=TRUE"
+    -DANDROID_ARM_NEON=TRUE \
+    -DPROTOC_EXECUTABLE=${host_protoc}"
 elif fun_is_macos; then
   dawn_enable_metal=ON
   cmake_extra="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"

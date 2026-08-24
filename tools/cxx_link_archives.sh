@@ -37,6 +37,18 @@ if fun_is_macos; then
         -framework Foundation -framework IOSurface -framework IOKit \
         -framework Metal -framework QuartzCore -framework Cocoa \
         -lz -o "${bin}"
+elif fun_is_android; then
+    cxx=$(fun_android_cxx)
+    sysroot=$(fun_android_sysroot)
+    group=
+    for archive in "$@"; do
+        group="${group} ${archive}"
+    done
+    # shellcheck disable=SC2086
+    "${cxx}" -std=c++20 -O2 -fPIC --sysroot="${sysroot}" \
+        ${FUN_GRAPHICS_CXX_DEFS:-} ${inc_flags} "${src}" \
+        -Wl,--whole-archive ${group} -Wl,--no-whole-archive \
+        -landroid -llog -lvulkan -lz -o "${bin}"
 else
     group=
     for archive in "$@"; do

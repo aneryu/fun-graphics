@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pack the host native relocatable object into a GitHub Release tarball.
+# Pack the (possibly cross-compiled) native relocatable object into a GitHub Release tarball.
 # Does not upload; run `sh tools/publish_native.sh <tarball>` afterwards.
 set -eu
 

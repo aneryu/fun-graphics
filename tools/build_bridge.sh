@@ -35,8 +35,17 @@ fi
 
 mkdir -p "${obj}" "${skia_out}/lib"
 
-cxx=${CXX:-c++}
-common_flags="-std=c++20 -O2 -fno-exceptions -fno-rtti -DSK_GRAPHITE -DSK_DAWN"
+if fun_is_android; then
+    cxx=$(fun_android_cxx)
+    ar_bin=$(fun_android_ar)
+    ld_bin=$(fun_android_ld)
+    common_flags="-std=c++20 -O2 -fPIC -fno-exceptions -fno-rtti -DSK_GRAPHITE -DSK_DAWN"
+else
+    cxx=${CXX:-c++}
+    ar_bin=${AR:-ar}
+    ld_bin=ld
+    common_flags="-std=c++20 -O2 -fno-exceptions -fno-rtti -DSK_GRAPHITE -DSK_DAWN"
+fi
 # Dawn headers must precede fun-graphics/include so stub webgpu.h cannot win.
 inc="-I ${dawn_out}/include -I ${root}/include -I ${skia_src}"
 defs="-DFUN_GRAPHICS_BUILD_ID=\"native\" -DFUN_GRAPHICS_SKIA_COMMIT=\"${skia_commit}\" -DFUN_GRAPHICS_DAWN_COMMIT=\"${dawn_commit}\""
@@ -57,7 +66,7 @@ ${cxx} ${common_flags} ${inc} ${defs} \
     -c "${root}/src/image.cpp" -o "${obj}/image.o"
 
 rm -f "${lib}"
-ar rcs "${lib}" \
+"${ar_bin}" rcs "${lib}" \
     "${obj}/build_info.o" \
     "${obj}/graphite_context.o" \
     "${obj}/surface.o" \
@@ -68,7 +77,14 @@ ar rcs "${lib}" \
 
 # One relocatable object so Zig `addObjectFile` keeps Dawn static constructors
 # (backend registration) instead of archive GC.
-if fun_is_macos; then
+if fun_is_android; then
+    "${ld_bin}" -r -o "${native_o}" \
+        --whole-archive \
+        "${lib}" \
+        "${skia_lib}" \
+        "${dawn_lib}" \
+        --no-whole-archive
+elif fun_is_macos; then
     # Prefer -all_load so duplicate archive member names (Dawn/Tint) are kept.
     # Fall back to unique-name extract + -filelist if this ld rejects the combo.
     if ! ld -r -arch "$(fun_ld_arch)" -keep_private_externs -all_load \

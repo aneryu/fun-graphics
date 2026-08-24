@@ -54,7 +54,14 @@ dawn_enable_vulkan=true
 dawn_enable_metal=false
 target_cpu_arg=
 target_os_arg=
-if fun_is_macos; then
+ndk_arg=
+ndk_api_arg=
+if fun_is_android; then
+  ndk_arg="ndk=\"$(fun_require_ndk)\""
+  ndk_api_arg="ndk_api=$(fun_android_api)"
+  target_os_arg="target_os=\"android\""
+  target_cpu_arg="target_cpu=\"$(fun_android_gn_cpu)\""
+elif fun_is_macos; then
   dawn_enable_vulkan=false
   dawn_enable_metal=true
   target_os_arg="target_os=\"mac\""
@@ -71,6 +78,8 @@ cd "${src}"
   is_component_build=false
   ${target_os_arg}
   ${target_cpu_arg}
+  ${ndk_arg}
+  ${ndk_api_arg}
   skia_enable_graphite=true
   skia_use_dawn=true
   skia_enable_ganesh=false

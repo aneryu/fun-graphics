@@ -38,7 +38,15 @@ dawn_enable_metal=OFF
 dawn_use_x11=OFF
 dawn_use_wayland=OFF
 
-if fun_is_macos; then
+if fun_is_android; then
+  ndk=$(fun_require_ndk)
+  dawn_enable_vulkan=ON
+  cmake_extra="-DCMAKE_TOOLCHAIN_FILE=${ndk}/build/cmake/android.toolchain.cmake \
+    -DANDROID_ABI=$(fun_android_abi) \
+    -DANDROID_PLATFORM=android-$(fun_android_api) \
+    -DANDROID_STL=c++_static \
+    -DANDROID_ARM_NEON=TRUE"
+elif fun_is_macos; then
   dawn_enable_metal=ON
   cmake_extra="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
 else
@@ -73,7 +81,7 @@ else
 fi
 
 stamp="${out}/dawn-config.txt"
-wanted="wayland=${dawn_use_wayland} x11=${dawn_use_x11} vulkan=${dawn_enable_vulkan} metal=${dawn_enable_metal}"
+wanted="target=$(fun_triple) wayland=${dawn_use_wayland} x11=${dawn_use_x11} vulkan=${dawn_enable_vulkan} metal=${dawn_enable_metal}"
 if [ -f "${out}/lib/libdawn_monolithic.a" ] && [ "${FUN_GRAPHICS_FORCE:-0}" != 1 ]; then
   if [ -f "${stamp}" ] && [ "$(cat "${stamp}")" = "${wanted}" ]; then
     echo "fun-graphics: reusing ${out}/lib/libdawn_monolithic.a (${wanted})" >&2

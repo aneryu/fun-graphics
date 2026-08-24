@@ -25,9 +25,6 @@ jobs:
     timeout-minutes: 180
     env:
       FUN_GRAPHICS_JOBS: "3"
-      FUN_GRAPHICS_TARGET: android
-      FUN_GRAPHICS_ANDROID_ABI: arm64-v8a
-      FUN_GRAPHICS_ANDROID_API: "26"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,11 +64,17 @@ jobs:
       - name: Build native (Dawn Vulkan + Skia Graphite + bridge, Android NDK)
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          FUN_GRAPHICS_TARGET: android
+          FUN_GRAPHICS_ANDROID_ABI: arm64-v8a
+          FUN_GRAPHICS_ANDROID_API: "26"
         run: zig build native -Dandroid
 
       - name: Pack Release tarball
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          FUN_GRAPHICS_TARGET: android
+          FUN_GRAPHICS_ANDROID_ABI: arm64-v8a
+          FUN_GRAPHICS_ANDROID_API: "26"
         run: zig build pack-native -Dandroid
 
       - name: Upload aarch64-android asset

@@ -5,6 +5,10 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 . "${root}/tools/host.sh"
 
+# Isolate from CI / caller env (native-android sets FUN_GRAPHICS_TARGET=android
+# for Dawn/Skia). This probe asserts host defaults, then opts into Android.
+unset FUN_GRAPHICS_TARGET FUN_GRAPHICS_ANDROID_ABI FUN_GRAPHICS_ANDROID_API
+
 if fun_is_android; then
     echo "fun-graphics: default env must not be android" >&2
     exit 1

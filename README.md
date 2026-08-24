@@ -23,7 +23,9 @@ See `docs/graphics.md` in fun.
 ## Prebuilt native archives (GitHub Releases)
 
 Compiling Dawn + Skia from source is the expensive path (multi-GB cache,
-CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB.
+CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB
+(DWARF is stripped after `ld -r`; Android otherwise ships ~300MB of
+debug info and packs to ~116MB).
 
 `-Dnative=true` looks in `~/.cache/fun-graphics/native/skia-<commit>/lib/`
 first. On a cache miss it downloads the matching tarball from this repo's

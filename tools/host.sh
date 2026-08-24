@@ -245,6 +245,32 @@ fun_android_ld() {
     printf '%s\n' "${toolchain}/bin/ld"
 }
 
+# Drop DWARF from a relocatable .o. NDK clang / Skia GN still emit full
+# debug info in Release; ld -r --whole-archive then copies it into the
+# packed object (Android was ~620MB uncompressed / ~116MB gzip, almost
+# all .debug_* plus .rela.debug_*). llvm-strip --strip-debug brings that
+# in line with Linux (~40MB / ~11MB gzip) without changing ABI symbols.
+fun_strip_debug() {
+    obj=$1
+    if [ ! -f "${obj}" ]; then
+        echo "fun-graphics: missing ${obj}" >&2
+        return 1
+    fi
+    before=$(wc -c < "${obj}" | tr -d ' ')
+    if fun_is_android; then
+        strip_bin="$(fun_android_toolchain)/bin/llvm-strip"
+        "${strip_bin}" --strip-debug "${obj}"
+    elif command -v llvm-strip >/dev/null 2>&1; then
+        llvm-strip --strip-debug "${obj}"
+    elif fun_is_macos; then
+        strip -S "${obj}"
+    else
+        strip --strip-debug "${obj}"
+    fi
+    after=$(wc -c < "${obj}" | tr -d ' ')
+    echo "fun-graphics: stripped debug ${before} -> ${after} bytes (${obj})" >&2
+}
+
 fun_android_sysroot() {
     printf '%s/sysroot\n' "$(fun_android_toolchain)"
 }

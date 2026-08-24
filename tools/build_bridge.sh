@@ -114,5 +114,7 @@ else
         --no-whole-archive
 fi
 
+fun_strip_debug "${native_o}"
+
 printf '%s\n' "${lib}"
 printf '%s\n' "${native_o}"

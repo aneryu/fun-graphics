@@ -72,6 +72,7 @@ target_cpu_arg=
 target_os_arg=
 ndk_arg=
 ndk_api_arg=
+extra_cflags_arg=
 if fun_is_android; then
   ndk_arg="ndk=\"$(fun_require_ndk)\""
   ndk_api_arg="ndk_api=$(fun_android_api)"
@@ -80,6 +81,8 @@ if fun_is_android; then
   # gpu_shared always compiles AndroidVulkanMemoryAllocator.cpp on Android;
   # that needs VulkanMemoryAllocators::Make from skia_use_vulkan/vma.
   skia_use_vulkan=true
+  # NDK clang still emits DWARF in official/release GN builds.
+  extra_cflags_arg="extra_cflags=[\"-g0\"]"
 elif fun_is_macos; then
   dawn_enable_vulkan=false
   dawn_enable_metal=true
@@ -95,6 +98,7 @@ cd "${src}"
   is_official_build=true
   is_debug=false
   is_component_build=false
+  ${extra_cflags_arg}
   ${target_os_arg}
   ${target_cpu_arg}
   ${ndk_arg}

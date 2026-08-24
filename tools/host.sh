@@ -163,6 +163,23 @@ fun_ios_frameworks() {
         "-framework ImageIO"
 }
 
+# Dawn's bundled protobuf cannot build protoc for iOS/Android.
+# Cross-compiles must feed a host protoc via -DPROTOC_EXECUTABLE.
+fun_host_protoc() {
+    if [ -n "${PROTOC_EXECUTABLE:-}" ] && [ -x "${PROTOC_EXECUTABLE}" ]; then
+        printf '%s\n' "${PROTOC_EXECUTABLE}"
+        return 0
+    fi
+    if command -v protoc >/dev/null 2>&1; then
+        command -v protoc
+        return 0
+    fi
+    echo "fun-graphics: Dawn cross-compile needs a host protoc." >&2
+    echo "install protobuf (brew install protobuf / apt install protobuf-compiler)" >&2
+    echo "or set PROTOC_EXECUTABLE to a host binary." >&2
+    return 1
+}
+
 fun_can_run_native() {
     # iphoneos binaries cannot execute on macOS. Simulator binaries can, but
     # Graphite/Dawn still need a Metal-capable sim runtime — skip for now.

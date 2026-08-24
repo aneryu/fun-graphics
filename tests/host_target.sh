@@ -91,6 +91,9 @@ if echo "${ios_fw}" | grep -q IOKit; then
 fi
 echo "${ios_fw}" | grep -q Metal || fail "iOS frameworks must include Metal"
 
+# fun_host_protoc is a function used by iOS Dawn CMake; don't require a binary here.
+type fun_host_protoc >/dev/null 2>&1 || fail "fun_host_protoc missing"
+
 mac_fw=$(fun_macos_frameworks)
 echo "${mac_fw}" | grep -q Cocoa || fail "macOS frameworks must include Cocoa"
 if echo "${mac_fw}" | grep -q UIKit; then

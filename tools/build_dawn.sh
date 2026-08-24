@@ -41,11 +41,13 @@ dawn_use_wayland=OFF
 if fun_is_ios; then
   dawn_enable_metal=ON
   sysroot=$(fun_ios_sysroot)
+  host_protoc=$(fun_host_protoc)
   cmake_extra="-DCMAKE_SYSTEM_NAME=iOS \
     -DCMAKE_OSX_SYSROOT=${sysroot} \
     -DCMAKE_OSX_ARCHITECTURES=$(fun_ios_arch) \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=$(fun_ios_min) \
-    -DCMAKE_MACOSX_BUNDLE=OFF"
+    -DCMAKE_MACOSX_BUNDLE=OFF \
+    -DPROTOC_EXECUTABLE=${host_protoc}"
 elif fun_is_macos; then
   dawn_enable_metal=ON
   cmake_extra="-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"

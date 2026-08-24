@@ -36,8 +36,8 @@ jobs:
           version: 0.16.0
           use-cache: false
 
-      - name: Install CMake and Ninja
-        run: brew install cmake ninja
+      - name: Install CMake, Ninja, and host protoc
+        run: brew install cmake ninja protobuf
 
       - name: Show iOS SDK
         run: |

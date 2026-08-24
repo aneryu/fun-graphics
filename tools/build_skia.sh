@@ -54,7 +54,21 @@ dawn_enable_vulkan=true
 dawn_enable_metal=false
 target_cpu_arg=
 target_os_arg=
-if fun_is_macos; then
+ios_extra=
+if fun_is_ios; then
+  dawn_enable_vulkan=false
+  dawn_enable_metal=true
+  target_os_arg="target_os=\"ios\""
+  target_cpu_arg="target_cpu=\"arm64\""
+  ios_extra="ios_min_target=\"$(fun_ios_min)\" skia_ios_use_signing=false skia_use_fonthost_mac=true"
+  if [ "$(fun_target)" = "ios-simulator" ]; then
+    case "$(fun_arch)" in
+      aarch64) target_cpu_arg="target_cpu=\"arm64\"" ;;
+      x86_64) target_cpu_arg="target_cpu=\"x64\"" ;;
+    esac
+    ios_extra="${ios_extra} ios_use_simulator=true"
+  fi
+elif fun_is_macos; then
   dawn_enable_vulkan=false
   dawn_enable_metal=true
   target_os_arg="target_os=\"mac\""
@@ -71,6 +85,7 @@ cd "${src}"
   is_component_build=false
   ${target_os_arg}
   ${target_cpu_arg}
+  ${ios_extra}
   skia_enable_graphite=true
   skia_use_dawn=true
   skia_enable_ganesh=false

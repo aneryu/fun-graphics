@@ -10,6 +10,7 @@ dawn_out=$2
 skia_out=$3
 src=$4
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+. "${root}/tools/host.sh"
 bin=${skia_out}/bin/bridge_smoke
 bridge_lib=${skia_out}/lib/libfun_graphics_bridge.a
 
@@ -28,4 +29,4 @@ FUN_GRAPHICS_CXX_DEFS="-DSK_GRAPHITE -DSK_DAWN" \
   "${bridge_lib}" \
   "${skia_out}/lib/libskia.a" \
   "${dawn_out}/lib/libdawn_monolithic.a"
-"${bin}"
+fun_run_hosted "${bin}"

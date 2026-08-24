@@ -37,6 +37,14 @@ mkdir -p "${obj}" "${skia_out}/lib"
 
 cxx=${CXX:-c++}
 common_flags="-std=c++20 -O2 -fno-exceptions -fno-rtti -DSK_GRAPHITE -DSK_DAWN"
+ios_sysroot=
+ios_arch=
+if fun_is_ios; then
+    ios_sysroot=$(fun_ios_sysroot)
+    ios_arch=$(fun_ios_arch)
+    cxx=$(fun_ios_clangxx)
+    common_flags="${common_flags} -arch ${ios_arch} -isysroot ${ios_sysroot} $(fun_ios_min_flag) -DSK_BUILD_FOR_IOS"
+fi
 # Dawn headers must precede fun-graphics/include so stub webgpu.h cannot win.
 inc="-I ${dawn_out}/include -I ${root}/include -I ${skia_src}"
 defs="-DFUN_GRAPHICS_BUILD_ID=\"native\" -DFUN_GRAPHICS_SKIA_COMMIT=\"${skia_commit}\" -DFUN_GRAPHICS_DAWN_COMMIT=\"${dawn_commit}\""
@@ -68,7 +76,27 @@ ar rcs "${lib}" \
 
 # One relocatable object so Zig `addObjectFile` keeps Dawn static constructors
 # (backend registration) instead of archive GC.
-if fun_is_macos; then
+if fun_is_ios; then
+    ld_ios_flags="-r -arch ${ios_arch} -syslibroot ${ios_sysroot} -keep_private_externs"
+    if ! ld ${ld_ios_flags} -all_load \
+        "${lib}" "${skia_lib}" "${dawn_lib}" -o "${native_o}" 2>/tmp/fun-graphics-ld-r.log
+    then
+        echo "fun-graphics: ld -r -all_load failed, extracting members:" >&2
+        cat /tmp/fun-graphics-ld-r.log >&2
+        stage=$(mktemp -d)
+        trap 'rm -rf "${stage}"' EXIT
+        python3 "$(dirname "$0")/extract_ar.py" "${lib}" "${stage}/bridge"
+        python3 "$(dirname "$0")/extract_ar.py" "${skia_lib}" "${stage}/skia"
+        python3 "$(dirname "$0")/extract_ar.py" "${dawn_lib}" "${stage}/dawn"
+        list=${stage}/objects.list
+        find "${stage}/bridge" "${stage}/skia" "${stage}/dawn" -name '*.o' > "${list}"
+        if [ ! -s "${list}" ]; then
+            echo "fun-graphics: no object members to pack into ${native_o}" >&2
+            exit 1
+        fi
+        ld ${ld_ios_flags} -filelist "${list}" -o "${native_o}"
+    fi
+elif fun_is_macos; then
     # Prefer -all_load so duplicate archive member names (Dawn/Tint) are kept.
     # Fall back to unique-name extract + -filelist if this ld rejects the combo.
     if ! ld -r -arch "$(fun_ld_arch)" -keep_private_externs -all_load \

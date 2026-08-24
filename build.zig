@@ -4,6 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const native = b.option(bool, "native", "Link prebuilt Dawn/Skia/bridge archives") orelse false;
+    const native_os = b.option([]const u8, "native-os", "From-source native OS override: ios | ios-simulator") orelse "";
 
     const versions_mod = b.createModule(.{
         .root_source_file = b.path("deps/versions.zig"),
@@ -13,9 +14,10 @@ pub fn build(b: *std.Build) void {
 
     const versions = @import("deps/versions.zig");
     const home = b.graph.environ_map.get("HOME") orelse "/tmp";
-    const dawn_out = b.fmt("{s}/.cache/fun-graphics/native/dawn-{s}", .{ home, versions.dawn.commit });
+    const cache_suffix = nativeCacheSuffix(b, target.result, native_os);
+    const dawn_out = b.fmt("{s}/.cache/fun-graphics/native/dawn-{s}{s}", .{ home, versions.dawn.commit, cache_suffix });
     const skia_src = b.fmt("{s}/.cache/fun-graphics/worktrees/skia/{s}", .{ home, versions.skia.commit });
-    const skia_out = b.fmt("{s}/.cache/fun-graphics/native/skia-{s}", .{ home, versions.skia.commit });
+    const skia_out = b.fmt("{s}/.cache/fun-graphics/native/skia-{s}{s}", .{ home, versions.skia.commit, cache_suffix });
     const native_o = b.fmt("{s}/lib/libfun_graphics_native.o", .{skia_out});
 
     const mod = b.addModule("fun_graphics", .{
@@ -24,7 +26,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
         // Linux native archives are g++/libstdc++; Zig's -lc++ is LLVM libc++.
-        // macOS native uses Apple libc++, which matches Zig's -lc++.
+        // macOS / iOS native uses Apple libc++, which matches Zig's -lc++.
         .link_libcpp = !(native and target.result.os.tag == .linux),
     });
     mod.addIncludePath(b.path("include"));
@@ -50,12 +52,21 @@ pub fn build(b: *std.Build) void {
         // also link tools/build_canvas_v2.sh — that overlay duplicates symbols.
 
         linkNativeSystem(b, mod, target.result);
-        if (target.result.os.tag == .macos) {
-            mod.linkFramework("CoreText", .{});
-            mod.linkFramework("CoreGraphics", .{});
-            mod.linkFramework("CoreFoundation", .{});
-            // Image decode uses ImageIO; Skia is built without PNG/JPEG codecs.
-            mod.linkFramework("ImageIO", .{});
+        switch (target.result.os.tag) {
+            .macos => {
+                mod.linkFramework("CoreText", .{});
+                mod.linkFramework("CoreGraphics", .{});
+                mod.linkFramework("CoreFoundation", .{});
+                // Image decode uses ImageIO; Skia is built without PNG/JPEG codecs.
+                mod.linkFramework("ImageIO", .{});
+            },
+            .ios => {
+                mod.linkFramework("CoreText", .{});
+                mod.linkFramework("CoreGraphics", .{});
+                mod.linkFramework("CoreFoundation", .{});
+                mod.linkFramework("ImageIO", .{});
+            },
+            else => {},
         }
     } else {
         mod.addCSourceFiles(.{
@@ -107,6 +118,11 @@ pub fn build(b: *std.Build) void {
     const run_versions_tests = b.addRunArtifact(versions_tests);
     test_step.dependOn(&run_versions_tests.step);
 
+    const host_target = b.addSystemCommand(&.{"sh"});
+    host_target.setName("host-target");
+    host_target.addFileArg(b.path("tests/host_target.sh"));
+    test_step.dependOn(&host_target.step);
+
     const native_step = b.step("native", "Build Dawn (and Skia when pinned) static archives");
     if (!versions.isDawnPinned()) {
         const native_fail = b.addSystemCommand(&.{
@@ -123,12 +139,14 @@ pub fn build(b: *std.Build) void {
         fetch_dawn.addArg("dawn");
         fetch_dawn.addArg(versions.dawn.repository);
         fetch_dawn.addArg(versions.dawn.commit);
+        setNativeOsEnv(fetch_dawn, native_os);
 
         const build_dawn = b.addSystemCommand(&.{"sh"});
         build_dawn.addFileArg(b.path("tools/build_dawn.sh"));
         build_dawn.addArg(dawn_src);
         build_dawn.addArg(dawn_out);
         build_dawn.step.dependOn(&fetch_dawn.step);
+        setNativeOsEnv(build_dawn, native_os);
 
         native_step.dependOn(&build_dawn.step);
 
@@ -137,6 +155,7 @@ pub fn build(b: *std.Build) void {
         dawn_smoke.addArg(dawn_out);
         dawn_smoke.addFileArg(b.path("tests/dawn_smoke.cpp"));
         dawn_smoke.step.dependOn(&build_dawn.step);
+        setNativeOsEnv(dawn_smoke, native_os);
 
         const dawn_smoke_step = b.step("dawn-smoke", "Link and run wgpuCreateInstance against native Dawn");
         dawn_smoke_step.dependOn(&dawn_smoke.step);
@@ -148,6 +167,7 @@ pub fn build(b: *std.Build) void {
             fetch_skia.addArg("skia");
             fetch_skia.addArg(versions.skia.repository);
             fetch_skia.addArg(versions.skia.commit);
+            setNativeOsEnv(fetch_skia, native_os);
 
             const build_skia = b.addSystemCommand(&.{"sh"});
             build_skia.addFileArg(b.path("tools/build_skia.sh"));
@@ -156,6 +176,7 @@ pub fn build(b: *std.Build) void {
             build_skia.addArg(skia_out);
             build_skia.step.dependOn(&fetch_skia.step);
             build_skia.step.dependOn(&build_dawn.step);
+            setNativeOsEnv(build_skia, native_os);
 
             const graphite_smoke = b.addSystemCommand(&.{"sh"});
             graphite_smoke.addFileArg(b.path("tools/graphite_smoke.sh"));
@@ -164,6 +185,7 @@ pub fn build(b: *std.Build) void {
             graphite_smoke.addArg(skia_out);
             graphite_smoke.addFileArg(b.path("tests/graphite_smoke.cpp"));
             graphite_smoke.step.dependOn(&build_skia.step);
+            setNativeOsEnv(graphite_smoke, native_os);
 
             const graphite_smoke_step = b.step("graphite-smoke", "Link Graphite+Dawn and run ContextFactory::MakeDawn");
             graphite_smoke_step.dependOn(&graphite_smoke.step);
@@ -177,6 +199,7 @@ pub fn build(b: *std.Build) void {
             build_bridge.addArg(versions.skia.commit);
             build_bridge.addArg(versions.dawn.commit);
             build_bridge.step.dependOn(&build_skia.step);
+            setNativeOsEnv(build_bridge, native_os);
 
             const bridge_smoke = b.addSystemCommand(&.{"sh"});
             bridge_smoke.addFileArg(b.path("tools/bridge_smoke.sh"));
@@ -185,6 +208,7 @@ pub fn build(b: *std.Build) void {
             bridge_smoke.addArg(skia_out);
             bridge_smoke.addFileArg(b.path("tests/bridge_smoke.cpp"));
             bridge_smoke.step.dependOn(&build_bridge.step);
+            setNativeOsEnv(bridge_smoke, native_os);
 
             const bridge_smoke_step = b.step("bridge-smoke", "Build Graphite C ABI and run wrap/flush smoke");
             bridge_smoke_step.dependOn(&bridge_smoke.step);
@@ -196,9 +220,30 @@ pub fn build(b: *std.Build) void {
             pack_native.addArg(versions.dawn.commit);
             pack_native.addArg(versions.skia.commit);
             pack_native.step.dependOn(&build_bridge.step);
+            setNativeOsEnv(pack_native, native_os);
             const pack_step = b.step("pack-native", "Pack libfun_graphics_native.o into a GitHub Release tarball");
             pack_step.dependOn(&pack_native.step);
         }
+    }
+}
+
+fn nativeCacheSuffix(b: *std.Build, result: std.Target, native_os: []const u8) []const u8 {
+    const ios_device = std.mem.eql(u8, native_os, "ios");
+    const ios_sim = std.mem.eql(u8, native_os, "ios-simulator");
+    const zig_ios = result.os.tag == .ios;
+    if (!ios_device and !ios_sim and !zig_ios) return "";
+    const simulator = ios_sim or (zig_ios and result.abi == .simulator);
+    const arch: []const u8 = switch (result.cpu.arch) {
+        .x86_64 => "x86_64",
+        else => "aarch64",
+    };
+    if (simulator) return b.fmt("-{s}-ios-simulator", .{arch});
+    return b.fmt("-{s}-ios", .{arch});
+}
+
+fn setNativeOsEnv(run: *std.Build.Step.Run, native_os: []const u8) void {
+    if (native_os.len != 0) {
+        run.setEnvironmentVariable("FUN_GRAPHICS_TARGET", native_os);
     }
 }
 
@@ -213,6 +258,13 @@ fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
         .macos => switch (result.cpu.arch) {
             .aarch64 => versions.native_macos_aarch64,
             else => null,
+        },
+        .ios => switch (result.abi) {
+            .simulator => null,
+            else => switch (result.cpu.arch) {
+                .aarch64 => versions.native_ios_aarch64,
+                else => null,
+            },
         },
         else => null,
     };
@@ -245,6 +297,22 @@ fn linkNativeSystem(b: *std.Build, mod: *std.Build.Module, result: std.Target) v
                 "Metal",
                 "QuartzCore",
                 "Cocoa",
+            }) |name| {
+                mod.linkFramework(name, .{});
+            }
+            mod.linkSystemLibrary("z", .{});
+        },
+        .ios => {
+            for ([_][]const u8{
+                "Foundation",
+                "UIKit",
+                "Metal",
+                "QuartzCore",
+                "CoreGraphics",
+                "CoreText",
+                "CoreFoundation",
+                "IOSurface",
+                "ImageIO",
             }) |name| {
                 mod.linkFramework(name, .{});
             }

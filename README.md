@@ -26,9 +26,9 @@ Compiling Dawn + Skia from source is the expensive path (multi-GB cache,
 CMake/GN). The relocatable object fun actually links is ~40MB, packed to ~11MB.
 
 `-Dnative=true` looks in `~/.cache/fun-graphics/native/skia-<commit>/lib/`
-first. On a cache miss it downloads the matching tarball from this repo's
-rolling `nightly` GitHub Release and unpacks. There is no versioned native-rN
-channel; `nightly` is the only published artifact set.
+first (iOS uses a `skia-<commit>-aarch64-ios` suffix so it does not collide
+with a macOS object on the same machine). On a cache miss it downloads the
+matching tarball from this repo's rolling `nightly` GitHub Release and unpacks.
 
 Current published triples:
 
@@ -37,14 +37,29 @@ Current published triples:
 | aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` | Vulkan + X11 + Wayland |
 | x86_64-linux | `fun-graphics-native-x86_64-linux.tar.gz` | Vulkan + X11 + Wayland |
 | aarch64-macos | `fun-graphics-native-aarch64-macos.tar.gz` | Metal |
+| aarch64-ios | `fun-graphics-native-aarch64-ios.tar.gz` | Metal (iphoneos) |
 
 Linux x86_64 is produced by `.github/workflows/native-linux.yml` (`ubuntu-24.04`).
 macOS aarch64 is produced by `.github/workflows/native-macos.yml` (`macos-14`).
-Both overwrite the same `nightly` release.
+iOS aarch64 is produced by `.github/workflows/native-ios.yml` (`macos-14` + iPhoneOS SDK).
+All overwrite the same `nightly` release.
 
-The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
+iOS is a cross-compile from macOS:
+
+```bash
+# on a Mac with Xcode
+zig build native -Dnative-os=ios
+zig build pack-native -Dnative-os=ios
+```
+
+Device (`iphoneos`) smoke binaries are linked but not executed. Simulator
+(`-Dnative-os=ios-simulator`) is supported as a from-source target; there is
+no published simulator tarball yet.
+
 Windows / Intel Mac still need `zig build native` on that host, then
 `zig build pack-native` + `sh tools/publish_native.sh`.
+
+The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
 
 ```bash
 # cheap path: download prebuilt, then link
@@ -61,6 +76,10 @@ fetches them into `~/.cache/fun-graphics/` and builds:
 - Dawn Vulkan-only monolithic `libdawn_monolithic.a`
 - Skia Graphite `libskia.a` linked against that Dawn archive (`fun_external_dawn`)
 - Graphite C ABI + `ld -r --whole-archive` → `libfun_graphics_native.o`
+
+On macOS the Dawn backend is Metal. On iOS (`-Dnative-os=ios`) Dawn/Skia/bridge
+are cross-compiled for `iphoneos` / arm64 with the same Metal backend, then
+packed as `fun-graphics-native-aarch64-ios.tar.gz`.
 
 `zig build dawn-smoke` runs `wgpuCreateInstance`.
 `zig build graphite-smoke` links Graphite+Dawn.

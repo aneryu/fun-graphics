@@ -27,7 +27,18 @@ shift
 
 mkdir -p "$(dirname "${bin}")"
 
-if fun_is_macos; then
+if fun_is_ios; then
+    force=
+    for archive in "$@"; do
+        force="${force} -Wl,-force_load,${archive}"
+    done
+    frameworks=$(fun_ios_frameworks)
+    cxx=$(fun_ios_clangxx)
+    # shellcheck disable=SC2086
+    ${cxx} -std=c++20 -O2 -arch "$(fun_ios_arch)" -isysroot "$(fun_ios_sysroot)" \
+        $(fun_ios_min_flag) ${FUN_GRAPHICS_CXX_DEFS:-} ${inc_flags} "${src}" ${force} \
+        ${frameworks} -lz -o "${bin}"
+elif fun_is_macos; then
     force=
     for archive in "$@"; do
         force="${force} -Wl,-force_load,${archive}"

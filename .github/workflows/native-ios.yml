@@ -1,0 +1,92 @@
+name: native-ios
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tools/**"
+      - "deps/**"
+      - "patches/**"
+      - "include/**"
+      - "tests/**"
+      - "build.zig"
+      - ".github/workflows/native-ios.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  aarch64-ios:
+    runs-on: macos-14
+    timeout-minutes: 180
+    env:
+      FUN_GRAPHICS_JOBS: "2"
+      FUN_GRAPHICS_IOS_MIN: "16.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+          use-cache: false
+
+      - name: Show iOS SDK
+        run: |
+          xcrun --sdk iphoneos --show-sdk-path
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Restore native cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/fun-graphics/git
+            ~/.cache/fun-graphics/worktrees
+            ~/.cache/fun-graphics/native
+          key: native-ios-aarch64-${{ hashFiles('deps/versions.zig') }}
+          restore-keys: |
+            native-ios-aarch64-
+
+      - name: Disk before
+        run: df -h
+
+      - name: Build native (Dawn Metal + Skia Graphite + bridge for iphoneos)
+        run: zig build native -Dnative-os=ios
+
+      - name: Pack Release tarball
+        run: zig build pack-native -Dnative-os=ios
+
+      - name: Upload aarch64-ios asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          asset="${HOME}/.cache/fun-graphics/releases/fun-graphics-native-aarch64-ios.tar.gz"
+          test -f "${asset}"
+          if command -v shasum >/dev/null; then
+            shasum -a 256 "${asset}"
+          else
+            sha256sum "${asset}"
+          fi
+          ls -lh "${asset}"
+          sh tools/publish_native.sh "${asset}" "${GITHUB_REPOSITORY}"
+
+      - name: Stub ABI tests
+        run: zig build test
+
+      - name: Save native cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/fun-graphics/git
+            ~/.cache/fun-graphics/worktrees
+            ~/.cache/fun-graphics/native
+          key: native-ios-aarch64-${{ hashFiles('deps/versions.zig') }}-${{ github.run_id }}
+
+      - name: Disk after
+        if: always()
+        run: df -h

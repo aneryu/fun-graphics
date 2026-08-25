@@ -37,10 +37,13 @@ Current published triples:
 | aarch64-linux | `fun-graphics-native-aarch64-linux.tar.gz` | Vulkan + X11 + Wayland |
 | x86_64-linux | `fun-graphics-native-x86_64-linux.tar.gz` | Vulkan + X11 + Wayland |
 | aarch64-macos | `fun-graphics-native-aarch64-macos.tar.gz` | Metal |
+| aarch64-android | `fun-graphics-native-aarch64-android.tar.gz` | Vulkan + Android |
+| aarch64-ios | `fun-graphics-native-aarch64-ios.tar.gz` | Metal + UIKit |
 
 Linux x86_64 is produced by `.github/workflows/native-linux.yml` (`ubuntu-24.04`).
 macOS aarch64 is produced by `.github/workflows/native-macos.yml` (`macos-14`).
-Both overwrite the same `nightly` release.
+Android aarch64 and iOS aarch64 are additional nightly assets. All overwrite the
+same `nightly` release.
 
 The repo is private; `gh auth login` or `GH_TOKEN` is required to download.
 Windows / Intel Mac still need `zig build native` on that host, then

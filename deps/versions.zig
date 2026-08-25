@@ -42,6 +42,14 @@ pub const native_macos_aarch64 = NativeAsset{
     .file = "fun-graphics-native-aarch64-macos.tar.gz",
 };
 
+pub const native_android_aarch64 = NativeAsset{
+    .file = "fun-graphics-native-aarch64-android.tar.gz",
+};
+
+pub const native_ios_aarch64 = NativeAsset{
+    .file = "fun-graphics-native-aarch64-ios.tar.gz",
+};
+
 pub fn isDawnPinned() bool {
     return !isUnpinned(dawn.commit);
 }
@@ -78,4 +86,6 @@ test "recipe lock is version 1" {
     try std.testing.expectEqualStrings("fun-graphics-native-aarch64-linux.tar.gz", native_linux_aarch64.file);
     try std.testing.expectEqualStrings("fun-graphics-native-x86_64-linux.tar.gz", native_linux_x86_64.file);
     try std.testing.expectEqualStrings("fun-graphics-native-aarch64-macos.tar.gz", native_macos_aarch64.file);
+    try std.testing.expectEqualStrings("fun-graphics-native-aarch64-android.tar.gz", native_android_aarch64.file);
+    try std.testing.expectEqualStrings("fun-graphics-native-aarch64-ios.tar.gz", native_ios_aarch64.file);
 }

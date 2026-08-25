@@ -13,9 +13,17 @@ pub fn build(b: *std.Build) void {
 
     const versions = @import("deps/versions.zig");
     const home = b.graph.environ_map.get("HOME") orelse "/tmp";
+    const android_ndk_opt = b.option([]const u8, "android-ndk", "Android NDK root (llvm-strip for Android native objects)");
+    const is_android = target.result.abi.isAndroid();
+    const is_ios = target.result.os.tag == .ios;
     const dawn_out = b.fmt("{s}/.cache/fun-graphics/native/dawn-{s}", .{ home, versions.dawn.commit });
     const skia_src = b.fmt("{s}/.cache/fun-graphics/worktrees/skia/{s}", .{ home, versions.skia.commit });
-    const skia_out = b.fmt("{s}/.cache/fun-graphics/native/skia-{s}", .{ home, versions.skia.commit });
+    const skia_out = if (is_android)
+        b.fmt("{s}/.cache/fun-graphics/native/android-aarch64/skia-{s}", .{ home, versions.skia.commit })
+    else if (is_ios)
+        b.fmt("{s}/.cache/fun-graphics/native/ios-aarch64/skia-{s}", .{ home, versions.skia.commit })
+    else
+        b.fmt("{s}/.cache/fun-graphics/native/skia-{s}", .{ home, versions.skia.commit });
     const native_o = b.fmt("{s}/lib/libfun_graphics_native.o", .{skia_out});
 
     const mod = b.addModule("fun_graphics", .{
@@ -25,7 +33,9 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
         // Linux native archives are g++/libstdc++; Zig's -lc++ is LLVM libc++.
         // macOS native uses Apple libc++, which matches Zig's -lc++.
-        .link_libcpp = !(native and target.result.os.tag == .linux),
+        // Android Bionic uses NDK libc++.
+        // iOS native is linked by Apple clang (`-lc++`), not Zig.
+        .link_libcpp = !(native and ((target.result.os.tag == .linux and !target.result.abi.isAndroid()) or is_ios)),
     });
     mod.addIncludePath(b.path("include"));
     mod.addImport("versions", versions_mod);
@@ -45,7 +55,22 @@ pub fn build(b: *std.Build) void {
             fetch.addArg("-");
         }
         const fetched_o = fetch.addOutputFileArg("libfun_graphics_native.o");
-        mod.addObjectFile(fetched_o);
+        const linked_o = if (is_android and optimize != .Debug) blk: {
+            const strip = b.addSystemCommand(&.{"sh"});
+            strip.setName("strip-native-debug");
+            strip.addFileArg(b.path("tools/strip_debug.sh"));
+            strip.addFileArg(fetched_o);
+            if (resolveAndroidNdk(b, android_ndk_opt)) |ndk| {
+                strip.setEnvironmentVariable("FUN_GRAPHICS_ANDROID_NDK", ndk);
+            }
+            break :blk strip.addOutputFileArg("libfun_graphics_native.o");
+        } else fetched_o;
+        b.addNamedLazyPath("native_o", linked_o);
+        // iOS final-links this .o with Apple clang; Zig's relocatable object
+        // does not absorb it. Other platforms let Zig's linker take it.
+        if (!is_ios) {
+            mod.addObjectFile(linked_o);
+        }
         // Nightly native already contains Canvas 2D v2 (path/text/image). Do not
         // also link tools/build_canvas_v2.sh — that overlay duplicates symbols.
 
@@ -88,7 +113,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .link_libc = true,
-            .link_libcpp = !(native and target.result.os.tag == .linux),
+            .link_libcpp = !(native and target.result.os.tag == .linux and !target.result.abi.isAndroid()),
             .imports = &.{
                 .{ .name = "fun_graphics", .module = mod },
             },
@@ -202,8 +227,41 @@ pub fn build(b: *std.Build) void {
     }
 }
 
+fn resolveAndroidNdk(b: *std.Build, ndk_opt: ?[]const u8) ?[]const u8 {
+    if (ndk_opt) |p| {
+        if (p.len > 0) return p;
+    }
+    if (b.graph.environ_map.get("ANDROID_NDK_HOME")) |p| {
+        if (p.len > 0) return p;
+    }
+    const home = b.graph.environ_map.get("HOME") orelse return null;
+    const sdk = b.graph.environ_map.get("ANDROID_HOME") orelse
+        b.graph.environ_map.get("ANDROID_SDK_ROOT") orelse
+        b.fmt("{s}/Library/Android/sdk", .{home});
+    const io = b.graph.io;
+    const ndk_root = b.fmt("{s}/ndk", .{sdk});
+    var dir = std.Io.Dir.cwd().openDir(io, ndk_root, .{ .iterate = true }) catch return null;
+    defer dir.close(io);
+    var best: ?[]const u8 = null;
+    var it = dir.iterate();
+    while (it.next(io) catch return best) |entry| {
+        if (entry.kind != .directory and entry.kind != .sym_link) continue;
+        if (entry.name.len == 0 or entry.name[0] == '.') continue;
+        if (best == null or std.mem.order(u8, entry.name, best.?) == .gt) {
+            best = b.dupe(entry.name);
+        }
+    }
+    return if (best) |name| b.fmt("{s}/{s}", .{ ndk_root, name }) else null;
+}
+
 fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
     const versions = @import("deps/versions.zig");
+    if (result.abi.isAndroid()) {
+        return switch (result.cpu.arch) {
+            .aarch64 => versions.native_android_aarch64,
+            else => null,
+        };
+    }
     return switch (result.os.tag) {
         .linux => switch (result.cpu.arch) {
             .aarch64 => versions.native_linux_aarch64,
@@ -214,11 +272,22 @@ fn nativeAsset(result: std.Target) ?@import("deps/versions.zig").NativeAsset {
             .aarch64 => versions.native_macos_aarch64,
             else => null,
         },
+        .ios => switch (result.cpu.arch) {
+            .aarch64 => versions.native_ios_aarch64,
+            else => null,
+        },
         else => null,
     };
 }
 
 fn linkNativeSystem(b: *std.Build, mod: *std.Build.Module, result: std.Target) void {
+    if (result.abi.isAndroid()) {
+        mod.linkSystemLibrary("android", .{});
+        mod.linkSystemLibrary("log", .{});
+        mod.linkSystemLibrary("vulkan", .{});
+        mod.linkSystemLibrary("z", .{});
+        return;
+    }
     switch (result.os.tag) {
         .linux => {
             // Zig maps linkSystemLibrary("stdc++") to LLVM libc++. Dawn/Skia need

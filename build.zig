@@ -71,8 +71,7 @@ pub fn build(b: *std.Build) void {
         if (!is_ios) {
             mod.addObjectFile(linked_o);
         }
-        // Nightly native already contains Canvas 2D v2 (path/text/image). Do not
-        // also link tools/build_canvas_v2.sh — that overlay duplicates symbols.
+        // Nightly already packs the full Canvas 2D ABI (canvas + path/text/image).
 
         linkNativeSystem(b, mod, target.result);
         if (target.result.os.tag == .macos) {

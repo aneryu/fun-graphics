@@ -1,5 +1,5 @@
-//! Canvas 2D runtime extras shared by bridge + incremental v2 objects.
-//! FGCanvas / FGSurface layout must match published native-r* objects.
+//! Canvas 2D runtime extras for the native Graphite bridge.
+//! FGCanvas / FGSurface layout must match published nightly objects.
 
 #pragma once
 
@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-// Layout locked to native-r1 bridge objects.
+// Layout locked to the published nightly bridge object.
 struct FGCanvas {
     SkCanvas* sk = nullptr;
     SkPaint fill;

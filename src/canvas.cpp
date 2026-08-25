@@ -1,7 +1,6 @@
-//! Native Graphite canvas: styles / rects / transforms (API v2).
-//! fillRect / setFillStyle / clear remain for full bridge rebuild; when linking
-//! against a published native-r1 object those symbols already exist — build.zig
-//! compiles this file only for `zig build native`, not the fetch-native path.
+//! Native Graphite canvas: fill / stroke / transforms / save-restore.
+//! `zig build native` packs this into the nightly object. There is no overlay
+//! translation unit — path / text / image live in their own files beside this.
 
 #include "internal.h"
 
@@ -170,11 +169,37 @@ extern "C" FGStatus fg_canvas_clear_rect(
 
 extern "C" void fg_canvas_save(FGCanvas* canvas) {
     if (canvas == nullptr || canvas->sk == nullptr) return;
+    CanvasExtra& extra = fgExtra(canvas);
+    CanvasExtra::GState state;
+    state.fill = canvas->fill;
+    state.stroke = extra.stroke;
+    state.global_alpha = extra.global_alpha;
+    state.line_width = extra.line_width;
+    state.line_dash = extra.line_dash;
+    state.line_dash_offset = extra.line_dash_offset;
+    state.font = extra.font;
+    state.text_align = extra.text_align;
+    state.text_baseline = extra.text_baseline;
+    extra.gstate.push_back(std::move(state));
     canvas->sk->save();
 }
 
 extern "C" void fg_canvas_restore(FGCanvas* canvas) {
     if (canvas == nullptr || canvas->sk == nullptr) return;
+    CanvasExtra& extra = fgExtra(canvas);
+    if (!extra.gstate.empty()) {
+        CanvasExtra::GState state = std::move(extra.gstate.back());
+        extra.gstate.pop_back();
+        canvas->fill = state.fill;
+        extra.stroke = state.stroke;
+        extra.global_alpha = state.global_alpha;
+        extra.line_width = state.line_width;
+        extra.line_dash = std::move(state.line_dash);
+        extra.line_dash_offset = state.line_dash_offset;
+        extra.font = state.font;
+        extra.text_align = state.text_align;
+        extra.text_baseline = state.text_baseline;
+    }
     canvas->sk->restore();
 }
 
